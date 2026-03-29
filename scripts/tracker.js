@@ -2,169 +2,187 @@
 /**
  * tracker.js — Hook entry point for orank event tracking
  *
- * This is a thin, fast script called by Claude Code hooks on every event.
- * It must be quick — runs on every tool use, session start/end, and turn complete.
- *
- * Usage:
- *   tracker.js session-start
- *   tracker.js session-end
- *   tracker.js tool-use --tool <name>
- *   tracker.js tool-failure --tool <name>
- *   tracker.js turn-complete
+ * Reads JSON from stdin (Claude Code hook API).
+ * Determines event type from hook_event_name field.
+ * Must be fast — runs on every hook event.
  */
 
 "use strict";
 
 const { Storage } = require("./storage");
 const { execSync } = require("child_process");
-const { cwd } = require("process");
-
-// ── Event Type Mapping ───────────────────────────────────────────────────────
-const EVENT_TYPE_MAP = {
-  "session-start": "session_start",
-  "session-end": "session_end",
-  "tool-use": "tool_use",
-  "tool-failure": "tool_failure",
-  "turn-complete": "turn_complete",
-};
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-/**
- * Get current git branch with 2s timeout
- * Returns null on error
- */
 function getGitBranch() {
   try {
-    const branch = execSync("git rev-parse --abbrev-ref HEAD", {
+    return execSync("git rev-parse --abbrev-ref HEAD", {
       encoding: "utf-8",
       timeout: 2000,
-      stdio: ["pipe", "pipe", "pipe"], // Suppress stderr
-    }).trim();
-    return branch || null;
+      stdio: ["pipe", "pipe", "pipe"],
+    }).trim() || null;
   } catch {
     return null;
   }
 }
 
-/**
- * Generate a session ID
- * Format: ses_{timestamp}_{random}
- */
-function generateSessionId() {
-  const ts = Date.now().toString(36);
-  const rand = Math.random().toString(36).slice(2, 8);
-  return `ses_${ts}_${rand}`;
+function readStdin() {
+  try {
+    const fd = require("fs").openSync("/dev/stdin", "r");
+    const buf = Buffer.alloc(65536);
+    const bytesRead = require("fs").readSync(fd, buf, 0, buf.length);
+    require("fs").closeSync(fd);
+    if (bytesRead === 0) return null;
+    return JSON.parse(buf.toString("utf8", 0, bytesRead));
+  } catch {
+    return null;
+  }
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 function main() {
-  const args = process.argv.slice(2);
-
-  if (args.length === 0) {
-    // No event type provided — exit silently
-    return;
-  }
-
-  const eventName = args[0];
-  const eventType = EVENT_TYPE_MAP[eventName];
-
-  if (!eventType) {
-    // Unknown event type — exit silently
-    return;
-  }
+  const input = readStdin();
+  if (!input || !input.hook_event_name) return;
 
   const storage = new Storage();
+  if (storage.isPaused()) return;
 
-  // Check if paused
-  if (storage.isPaused()) {
-    return; // Exit silently
-  }
+  const sid = input.session_id || null;
+  const ts = new Date().toISOString();
 
-  // Handle each event type
-  switch (eventType) {
-    case "session_start": {
-      const sessionId = generateSessionId();
-      const projectPath = process.env.CLAUDE_PROJECT_DIR || cwd();
-      const branch = getGitBranch();
-
-      storage.setCurrentSession(sessionId);
+  switch (input.hook_event_name) {
+    case "SessionStart": {
       storage.appendEvent({
         type: "session_start",
-        session_id: sessionId,
-        timestamp: new Date().toISOString(),
-        cwd: projectPath,
-        branch,
+        ts,
+        sid,
+        model: input.model || null,
+        source: input.source || "startup",
+        cwd: input.cwd || process.cwd(),
+        branch: getGitBranch(),
       });
       break;
     }
 
-    case "session_end": {
-      const sessionId = storage.getCurrentSession();
-      if (sessionId) {
-        storage.appendEvent({
-          type: "session_end",
-          session_id: sessionId,
-          timestamp: new Date().toISOString(),
-        });
-      }
-      storage.clearCurrentSession();
+    case "SessionEnd": {
+      storage.appendEvent({
+        type: "session_end",
+        ts,
+        sid,
+        reason: input.reason || null,
+      });
       break;
     }
 
-    case "tool_use": {
-      const sessionId = storage.getCurrentSession();
-      if (sessionId) {
-        const toolIdx = args.indexOf("--tool");
-        const fileIdx = args.indexOf("--input-file");
-        const toolName = toolIdx >= 0 ? args[toolIdx + 1] : process.env.CLAUDE_TOOL_NAME || "unknown";
-        const filePath = fileIdx >= 0 ? args[fileIdx + 1] : process.env.CLAUDE_TOOL_INPUT_FILE_PATH || null;
+    case "PostToolUse": {
+      const toolName = input.tool_name || "unknown";
+      const filePath = input.tool_input
+        ? input.tool_input.file_path || null
+        : null;
+      storage.appendEvent({
+        type: "tool_use",
+        ts,
+        sid,
+        tool: toolName,
+        file_path: filePath,
+      });
+      break;
+    }
 
+    case "PostToolUseFailure": {
+      const toolName = input.tool_name || "unknown";
+      const error = input.error || null;
+      storage.appendEvent({
+        type: "tool_failure",
+        ts,
+        sid,
+        tool: toolName,
+        error,
+      });
+      break;
+    }
+
+    case "Stop": {
+      storage.appendEvent({
+        type: "turn_complete",
+        ts,
+        sid,
+      });
+      break;
+    }
+
+    case "StopFailure": {
+      const errorType = input.error_type
+        || input.reason
+        || "unknown";
+      storage.appendEvent({
+        type: "turn_error",
+        ts,
+        sid,
+        error_type: errorType,
+      });
+      break;
+    }
+
+    case "UserPromptSubmit": {
+      // Privacy: only extract slash command name, never store prompt
+      const prompt = input.prompt || "";
+      const match = prompt.match(/^\s*\/(\S+)/);
+      if (match) {
         storage.appendEvent({
-          type: "tool_use",
-          session_id: sessionId,
-          tool_name: toolName,
-          file_path: filePath,
-          timestamp: new Date().toISOString(),
+          type: "slash_command",
+          ts,
+          sid,
+          command: match[1],
         });
       }
       break;
     }
 
-    case "tool_failure": {
-      const sessionId = storage.getCurrentSession();
-      if (sessionId) {
-        const toolIdx = args.indexOf("--tool");
-        const toolName = toolIdx >= 0 ? args[toolIdx + 1] : process.env.CLAUDE_TOOL_NAME || "unknown";
-
-        storage.appendEvent({
-          type: "tool_failure",
-          session_id: sessionId,
-          tool_name: toolName,
-          timestamp: new Date().toISOString(),
-        });
+    case "PreToolUse": {
+      // Only fires for Skill tool (matcher in hooks.json).
+      // Extract the skill name being invoked.
+      if (input.tool_name === "Skill" && input.tool_input) {
+        const skillName = input.tool_input.skill || null;
+        if (skillName) {
+          storage.appendEvent({
+            type: "slash_command",
+            ts,
+            sid,
+            command: skillName,
+          });
+        }
       }
       break;
     }
 
-    case "turn_complete": {
-      const sessionId = storage.getCurrentSession();
-      if (sessionId) {
-        storage.appendEvent({
-          type: "turn_complete",
-          session_id: sessionId,
-          timestamp: new Date().toISOString(),
-        });
-      }
+    case "SubagentStart": {
+      storage.appendEvent({
+        type: "subagent_start",
+        ts,
+        sid,
+        agent_type: input.agent_type || "unknown",
+        agent_id: input.agent_id || null,
+      });
+      break;
+    }
+
+    case "SubagentStop": {
+      storage.appendEvent({
+        type: "subagent_stop",
+        ts,
+        sid,
+        agent_type: input.agent_type || "unknown",
+        agent_id: input.agent_id || null,
+      });
       break;
     }
 
     default:
-      // Should not reach here due to earlier check, but be safe
+      // Unknown hook event — exit silently
       break;
   }
 }
 
-// ── Entry Point ──────────────────────────────────────────────────────────────
 main();
