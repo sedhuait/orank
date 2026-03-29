@@ -1,11 +1,32 @@
 {
   "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/tracker.js"
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/tracker.js session-start"
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/tracker.js"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/tracker.js"
           }
         ]
       }
@@ -16,7 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/tracker.js tool-use --tool \"$CLAUDE_TOOL_NAME\""
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/tracker.js"
           }
         ]
       }
@@ -27,7 +48,27 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/tracker.js tool-failure --tool \"$CLAUDE_TOOL_NAME\""
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/tracker.js"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/tracker.js"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/tracker.js"
           }
         ]
       }
@@ -37,7 +78,17 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/tracker.js turn-complete"
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/tracker.js"
+          }
+        ]
+      }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/tracker.js"
           }
         ]
       }
@@ -47,7 +98,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/tracker.js session-end"
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/tracker.js"
           }
         ]
       }
