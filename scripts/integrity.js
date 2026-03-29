@@ -76,7 +76,7 @@ const ANOMALY_RULES = [
       const minuteWindows = {};
       for (const event of events) {
         if (event.type !== "tool_use") continue;
-        const minute = event.timestamp.slice(0, 16); // YYYY-MM-DDTHH:MM
+        const minute = event.ts.slice(0, 16); // YYYY-MM-DDTHH:MM
         minuteWindows[minute] = (minuteWindows[minute] || 0) + 1;
       }
 
@@ -100,7 +100,7 @@ const ANOMALY_RULES = [
       const dayWindows = {};
       for (const event of events) {
         if (event.type !== "session_start") continue;
-        const day = event.timestamp.slice(0, 10); // YYYY-MM-DD
+        const day = event.ts.slice(0, 10); // YYYY-MM-DD
         dayWindows[day] = (dayWindows[day] || 0) + 1;
       }
 
@@ -124,7 +124,7 @@ const ANOMALY_RULES = [
       const dayXP = {};
       for (const event of events) {
         if (event.type !== "xp_award") continue;
-        const day = event.timestamp.slice(0, 10); // YYYY-MM-DD
+        const day = event.ts.slice(0, 10); // YYYY-MM-DD
         dayXP[day] = (dayXP[day] || 0) + (event.amount || 0);
       }
 
@@ -148,10 +148,10 @@ const ANOMALY_RULES = [
       const sessions = {};
       for (const event of events) {
         if (event.type === "session_start") {
-          sessions[event.session_id] = { start_ts: event.timestamp };
+          sessions[event.sid] = { start_ts: event.ts };
         } else if (event.type === "session_end") {
-          if (sessions[event.session_id]) {
-            sessions[event.session_id].end_ts = event.timestamp;
+          if (sessions[event.sid]) {
+            sessions[event.sid].end_ts = event.ts;
           }
         }
       }
@@ -185,17 +185,17 @@ const ANOMALY_RULES = [
       }
 
       const violating = [];
-      let currentTool = toolEvents[0].tool_name;
+      let currentTool = toolEvents[0].tool;
       let streak = 1;
 
       for (let i = 1; i < toolEvents.length; i++) {
-        if (toolEvents[i].tool_name === currentTool) {
+        if (toolEvents[i].tool === currentTool) {
           streak++;
         } else {
           if (streak > 1000) {
             violating.push({ tool: currentTool, streak });
           }
-          currentTool = toolEvents[i].tool_name;
+          currentTool = toolEvents[i].tool;
           streak = 1;
         }
       }
