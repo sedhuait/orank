@@ -8,6 +8,8 @@
  * Badge tiers: bronze → silver → gold → platinum → diamond
  */
 
+const { generateDynamicBadges, getNextBadges } = require("./dynamic-badges");
+
 // ── Badge Definitions ────────────────────────────────────────────────────────
 const BADGE_DEFINITIONS = [
   // ── Usage Milestones ────────────────────────────────────────────────────
@@ -232,6 +234,73 @@ const BADGE_DEFINITIONS = [
     tier: "silver",
     check: (stats) => ({ earned: stats.total_turns >= 5000, progress: Math.min(100, (stats.total_turns / 5000) * 100) }),
   },
+
+  // ── Efficiency & Depth Badges ──────────────────────────────────────────
+  {
+    id: "efficiency-expert",
+    name: "Efficiency Expert",
+    description: "Maintain A+ efficiency score for 7 days",
+    icon: "\uD83C\uDF1F",
+    tier: "gold",
+    check: (stats) => {
+      return { earned: false, progress: 0 };
+    },
+  },
+  {
+    id: "pattern-builder",
+    name: "Pattern Builder",
+    description: "Develop 5 recognized workflow patterns",
+    icon: "\uD83D\uDD04",
+    tier: "silver",
+    check: (stats) => {
+      const count = stats._pattern_count || 0;
+      return { earned: count >= 5, progress: Math.min(100, (count / 5) * 100) };
+    },
+  },
+  {
+    id: "parallel-thinker",
+    name: "Parallel Thinker",
+    description: "Use 10+ subagent sessions",
+    icon: "\uD83E\uDDE0",
+    tier: "silver",
+    check: (stats) => {
+      const count = stats.total_subagents || 0;
+      return { earned: count >= 10, progress: Math.min(100, (count / 10) * 100) };
+    },
+  },
+  {
+    id: "zero-failures",
+    name: "Zero Failures",
+    description: "Complete a 50+ tool session with 0 failures",
+    icon: "\uD83D\uDEE1\uFE0F",
+    tier: "gold",
+    check: (stats) => {
+      const achieved = stats._zero_failure_session || false;
+      return { earned: achieved, progress: achieved ? 100 : 0 };
+    },
+  },
+  {
+    id: "command-explorer",
+    name: "Command Explorer",
+    description: "Use 20 different slash commands",
+    icon: "\u2328\uFE0F",
+    tier: "silver",
+    check: (stats) => {
+      const count = Object.keys(stats.slash_command_counts || {}).length;
+      return { earned: count >= 20, progress: Math.min(100, (count / 20) * 100) };
+    },
+  },
+  {
+    id: "trend-setter",
+    name: "Trend Setter",
+    description: "Improve efficiency score 4 weeks in a row",
+    icon: "\uD83D\uDCC8",
+    tier: "platinum",
+    check: (stats) => {
+      const weeks = stats._improving_weeks || 0;
+      return { earned: weeks >= 4, progress: Math.min(100, (weeks / 4) * 100) };
+    },
+  },
 ];
 
 // ── XP Award Rules ───────────────────────────────────────────────────────────
@@ -282,10 +351,33 @@ class BadgeEngine {
   evaluate() {
     const stats = this.storage.getStats();
     stats.total_xp = this.storage.getTotalXP();
+
+    // Enrich stats for new badge checks
+    const { detectPatterns } = require("./patterns");
+    const sessions = this.storage.getSessions();
+    const patterns = detectPatterns(sessions);
+    stats._pattern_count = patterns.length;
+    stats._zero_failure_session = Object.values(sessions).some(
+      (s) => s.tool_count >= 50 && s.failure_count === 0
+    );
+
+    const snapshots = this.storage.getWeeklySnapshots();
+    const weekKeys = Object.keys(snapshots).sort();
+    let improvingWeeks = 0;
+    for (let i = 1; i < weekKeys.length; i++) {
+      if (snapshots[weekKeys[i]].composite > snapshots[weekKeys[i - 1]].composite) {
+        improvingWeeks += 1;
+      } else {
+        improvingWeeks = 0;
+      }
+    }
+    stats._improving_weeks = improvingWeeks;
+
     const earnedBadges = this.storage.getBadges().earned;
-    const earnedIds = new Set(earnedBadges.map((b) => b.id));
+    const earnedIds = new Set(earnedBadges.map((b) => b.badge_id));
     const newlyEarned = [];
 
+    // Evaluate curated badges
     for (const badge of BADGE_DEFINITIONS) {
       if (earnedIds.has(badge.id)) continue;
       const result = badge.check(stats);
@@ -297,6 +389,22 @@ class BadgeEngine {
         this.storage.addXP(xpAmount, `Badge earned: ${badge.name}`);
       }
     }
+
+    // Evaluate dynamic badges
+    const tracks = this.storage.getDynamicBadgeTracks();
+    const totalCmdCount = Object.values(stats.slash_command_counts || {}).reduce((a, b) => a + b, 0);
+    const dynamicBadges = generateDynamicBadges(tracks, stats.total_tool_uses, totalCmdCount);
+
+    for (const db of dynamicBadges) {
+      if (!db.earned) continue;
+      if (earnedIds.has(db.id)) continue;
+      newlyEarned.push(db);
+      this.storage.recordBadge(db.id, db.name, db.tier);
+      const xpKey = `BADGE_EARNED_${db.tier.toUpperCase()}`;
+      const xpAmount = XP_RULES[xpKey] || 100;
+      this.storage.addXP(xpAmount, `Badge earned: ${db.name}`);
+    }
+
     return newlyEarned;
   }
 
@@ -332,6 +440,29 @@ class BadgeEngine {
     const stats = this.storage.getStats();
     stats.total_xp = this.storage.getTotalXP();
 
+    // Enrich stats with pattern and session data for new badge checks
+    const { detectPatterns } = require("./patterns");
+    const sessions = this.storage.getSessions();
+    const patterns = detectPatterns(sessions);
+    stats._pattern_count = patterns.length;
+    stats._zero_failure_session = Object.values(sessions).some(
+      (s) => s.tool_count >= 50 && s.failure_count === 0
+    );
+
+    // Check weekly snapshots for trend-setter badge
+    const snapshots = this.storage.getWeeklySnapshots();
+    const weekKeys = Object.keys(snapshots).sort();
+    let improvingWeeks = 0;
+    for (let i = 1; i < weekKeys.length; i++) {
+      if (snapshots[weekKeys[i]].composite > snapshots[weekKeys[i - 1]].composite) {
+        improvingWeeks += 1;
+      } else {
+        improvingWeeks = 0;
+      }
+    }
+    stats._improving_weeks = improvingWeeks;
+
+    // Evaluate curated badges
     const earned = [];
     const inProgress = [];
     const locked = [];
@@ -349,7 +480,37 @@ class BadgeEngine {
         }
       }
     }
-    return { earned, inProgress, locked, total: BADGE_DEFINITIONS.length };
+
+    // Generate and merge dynamic badges
+    const tracks = this.storage.getDynamicBadgeTracks();
+    const totalCmdCount = Object.values(stats.slash_command_counts || {}).reduce((a, b) => a + b, 0);
+    const dynamicBadges = generateDynamicBadges(tracks, stats.total_tool_uses, totalCmdCount);
+
+    for (const db of dynamicBadges) {
+      if (db.earned) {
+        if (!earnedIds.has(db.id)) {
+          earned.push({ ...db, earned_at: null });
+        } else {
+          const eb = earnedBadges.find((b) => b.badge_id === db.id);
+          earned.push({ ...db, earned_at: eb ? eb.earned_at : null });
+        }
+      } else if (db.progress > 0) {
+        inProgress.push(db);
+      } else {
+        locked.push(db);
+      }
+    }
+
+    const allBadges = [...earned, ...inProgress, ...locked];
+    const nextBadges = getNextBadges(allBadges);
+
+    return {
+      earned,
+      inProgress,
+      locked,
+      total: BADGE_DEFINITIONS.length + dynamicBadges.length,
+      nextBadges,
+    };
   }
 }
 
