@@ -23,6 +23,7 @@ If no argument given, run `node ${CLAUDE_PLUGIN_ROOT}/scripts/cli.js stats`.
 - `/orank resume` — Resume tracking
 - `/orank purge --confirm` — Delete all orank data permanently
 - `/orank integrity` — Run anomaly check and trust score
+- `/orank insights` — Weekly deep-dive: efficiency breakdown, patterns, milestones
 
 ## First run
 
