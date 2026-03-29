@@ -1,0 +1,28 @@
+{
+  "name": "orank",
+  "owner": {
+    "name": "Sedhu",
+    "email": "sedhuait@gmail.com"
+  },
+  "metadata": {
+    "description": "Your open AI coding score. Gamification, badges, and ranking for Claude Code users.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "orank",
+      "source": "./",
+      "description": "Track Claude Code usage, earn badges, climb the leaderboard.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Sedhu",
+        "email": "sedhuait@gmail.com"
+      },
+      "homepage": "https://orank.me",
+      "repository": "https://github.com/sedhuait/orank",
+      "license": "MIT",
+      "keywords": ["ranking", "gamification", "badges", "stats", "tracking"],
+      "category": "productivity"
+    }
+  ]
+}

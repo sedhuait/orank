@@ -1,0 +1,26 @@
+{
+  "name": "orank",
+  "version": "0.1.0",
+  "description": "orank — your open AI score. Gamification, badges, and ranking for Claude Code users.",
+  "main": "scripts/cli.js",
+  "scripts": {
+    "stats": "node scripts/cli.js stats",
+    "badges": "node scripts/cli.js badges",
+    "import": "node scripts/cli.js import",
+    "export": "node scripts/cli.js export",
+    "privacy": "node scripts/cli.js privacy",
+    "integrity": "node scripts/cli.js integrity"
+  },
+  "dependencies": {},
+  "keywords": ["claude", "claude-code", "plugin", "gamification", "ranking", "badges"],
+  "author": "Sedhu <sedhuait@gmail.com>",
+  "license": "MIT",
+  "homepage": "https://orank.me",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sedhuait/orank"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

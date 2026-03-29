@@ -1,0 +1,23 @@
+{
+  "name": "orank",
+  "version": "0.1.0",
+  "description": "Your open AI coding score. Track Claude Code usage, earn badges, climb the leaderboard.",
+  "author": {
+    "name": "Sedhu",
+    "email": "sedhuait@gmail.com",
+    "url": "https://orank.me"
+  },
+  "homepage": "https://orank.me",
+  "repository": "https://github.com/sedhuait/orank",
+  "license": "MIT",
+  "keywords": ["ranking", "gamification", "badges", "stats", "tracking"],
+  "skills": "./skills/",
+  "userConfig": {
+    "display_name": {
+      "title": "Display Name",
+      "description": "Your display name on orank leaderboards",
+      "type": "string",
+      "sensitive": false
+    }
+  }
+}

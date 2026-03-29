@@ -1,0 +1,25 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Plugin runtime data (lives in ~/.claude/plugins/data/orank/)
+events.jsonl
+cache.json
+.paused
+.current-session
+sync-cursor.json
+
+# Environment
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
