@@ -177,21 +177,24 @@ class HistoryImporter {
         const startTime = session.startTime || new Date().toISOString();
 
         this.storage.appendEvent({
-          type: 'session_start',
-          timestamp: startTime,
-          session_id: session.id,
+          type: "session_start",
+          ts: startTime,
+          sid: session.id,
           cwd: session.cwd,
           branch: session.branch,
+          model: null,
+          source: "import",
         });
 
-        if (session.toolCounts && typeof session.toolCounts === 'object') {
+        if (session.toolCounts && typeof session.toolCounts === "object") {
           for (const [toolName, count] of Object.entries(session.toolCounts)) {
             for (let i = 0; i < count; i++) {
               this.storage.appendEvent({
-                type: 'tool_use',
-                timestamp: startTime,
-                session_id: session.id,
-                tool_name: toolName,
+                type: "tool_use",
+                ts: startTime,
+                sid: session.id,
+                tool: toolName,
+                file_path: null,
               });
             }
           }
@@ -200,22 +203,21 @@ class HistoryImporter {
         const turns = session.turns || 0;
         for (let i = 0; i < turns; i++) {
           this.storage.appendEvent({
-            type: 'turn_complete',
-            timestamp: startTime,
-            session_id: session.id,
+            type: "turn_complete",
+            ts: startTime,
+            sid: session.id,
           });
         }
 
-        const duration = 1800;
         this.storage.appendEvent({
-          type: 'session_end',
-          timestamp: startTime,
-          session_id: session.id,
-          duration_seconds: duration,
+          type: "session_end",
+          ts: startTime,
+          sid: session.id,
+          reason: "import",
         });
 
         this.storage.markSessionImported(session.id);
-        this.storage.addXP(50, 'History import: session ' + session.id);
+        this.storage.addXP(50, "History import: session " + session.id);
 
         this.imported += 1;
       } catch (e) {
