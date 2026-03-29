@@ -10,12 +10,10 @@
  * - cache.json: derived stats (rebuilt from events)
  * - sync-cursor.json: last sync offset
  * - .paused: sentinel file (pause tracking)
- * - .current-session: current session ID
  */
 
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
 
 class Storage {
   constructor() {
@@ -24,7 +22,6 @@ class Storage {
     this.cacheFile = path.join(this.dataDir, 'cache.json');
     this.syncCursorFile = path.join(this.dataDir, 'sync-cursor.json');
     this.pausedFile = path.join(this.dataDir, '.paused');
-    this.currentSessionFile = path.join(this.dataDir, '.current-session');
 
     // Ensure data directory exists
     if (!fs.existsSync(this.dataDir)) {
@@ -46,27 +43,6 @@ class Storage {
   appendEvent(event) {
     const line = JSON.stringify(event) + '\n';
     fs.appendFileSync(this.eventsFile, line);
-  }
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // Session Management
-  // ───────────────────────────────────────────────────────────────────────────
-
-  setCurrentSession(sid) {
-    fs.writeFileSync(this.currentSessionFile, sid, 'utf8');
-  }
-
-  getCurrentSession() {
-    if (fs.existsSync(this.currentSessionFile)) {
-      return fs.readFileSync(this.currentSessionFile, 'utf8').trim();
-    }
-    return null;
-  }
-
-  clearCurrentSession() {
-    if (fs.existsSync(this.currentSessionFile)) {
-      fs.unlinkSync(this.currentSessionFile);
-    }
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -101,21 +77,31 @@ class Storage {
   _emptyCache() {
     return {
       total_xp: 0,
-      tier: 'Bronze',
+      tier: "Bronze",
       total_sessions: 0,
       total_tools: 0,
       total_tool_failures: 0,
       total_turns: 0,
       total_seconds: 0,
+      total_turn_errors: 0,
+      total_subagents: 0,
       current_streak: 0,
       longest_streak: 0,
       last_active_date: null,
       tool_counts: {},
+      slash_command_counts: {},
+      subagent_counts: {},
+      turn_errors: {},
       daily_sessions: {},
       hourly_activity: Array(24).fill(0),
       badges_earned: [],
       imported_session_ids: [],
       xp_log: [],
+      sessions: {},
+      tool_sequences: [],
+      weekly_snapshots: {},
+      dynamic_badge_tracks: {},
+      last_weekly_summary_shown: null,
       events_offset: 0,
       last_rebuilt: null,
     };
@@ -192,75 +178,134 @@ class Storage {
   }
 
   _processEvent(cache, event) {
-    const { type, timestamp, session_id, amount, reason, badge_id, badge_name, badge_tier } = event;
+    const { type, ts, sid } = event;
 
     switch (type) {
-      case 'session_start': {
+      case "session_start": {
         cache.total_sessions += 1;
-        const date = new Date(timestamp).toISOString().split('T')[0];
+        const date = ts.split("T")[0];
         cache.daily_sessions[date] = (cache.daily_sessions[date] || 0) + 1;
-
-        // Track hourly activity
-        const hour = new Date(timestamp).getHours();
+        const hour = new Date(ts).getHours();
         cache.hourly_activity[hour] += 1;
+        cache.sessions[sid] = {
+          start_ts: ts,
+          end_ts: null,
+          tool_count: 0,
+          failure_count: 0,
+          tools_ordered: [],
+        };
         break;
       }
 
-      case 'tool_use': {
-        const { tool_name } = event;
-        cache.total_tools += 1;
-        cache.tool_counts[tool_name] = (cache.tool_counts[tool_name] || 0) + 1;
-        break;
-      }
-
-      case 'tool_failure': {
-        const { tool_name } = event;
-        cache.total_tools += 1;
-        cache.total_tool_failures += 1;
-        cache.tool_counts[tool_name] = (cache.tool_counts[tool_name] || 0) + 1;
-        break;
-      }
-
-      case 'turn_complete': {
-        cache.total_turns += 1;
-        break;
-      }
-
-      case 'session_end': {
-        const { duration_seconds } = event;
-        if (duration_seconds) {
-          cache.total_seconds += duration_seconds;
+      case "session_end": {
+        if (cache.sessions[sid]) {
+          cache.sessions[sid].end_ts = ts;
+          const start = new Date(cache.sessions[sid].start_ts).getTime();
+          const end = new Date(ts).getTime();
+          const durationSec = Math.floor((end - start) / 1000);
+          if (durationSec > 0 && durationSec < 86400) {
+            cache.total_seconds += durationSec;
+          }
         }
         break;
       }
 
-      case 'xp_award': {
-        cache.total_xp += amount;
+      case "tool_use": {
+        const { tool } = event;
+        cache.total_tools += 1;
+        cache.tool_counts[tool] = (cache.tool_counts[tool] || 0) + 1;
+        if (cache.sessions[sid]) {
+          cache.sessions[sid].tool_count += 1;
+          cache.sessions[sid].tools_ordered.push({ tool, ts });
+        }
+        const trackKey = "tool:" + tool;
+        if (!cache.dynamic_badge_tracks[trackKey]) {
+          cache.dynamic_badge_tracks[trackKey] = { count: 0, earned_tiers: [] };
+        }
+        cache.dynamic_badge_tracks[trackKey].count += 1;
+        break;
+      }
+
+      case "tool_failure": {
+        const { tool } = event;
+        cache.total_tools += 1;
+        cache.total_tool_failures += 1;
+        cache.tool_counts[tool] = (cache.tool_counts[tool] || 0) + 1;
+        if (cache.sessions[sid]) {
+          cache.sessions[sid].failure_count += 1;
+          cache.sessions[sid].tool_count += 1;
+          cache.sessions[sid].tools_ordered.push({ tool, ts });
+        }
+        const trackKey = "tool:" + tool;
+        if (!cache.dynamic_badge_tracks[trackKey]) {
+          cache.dynamic_badge_tracks[trackKey] = { count: 0, earned_tiers: [] };
+        }
+        cache.dynamic_badge_tracks[trackKey].count += 1;
+        break;
+      }
+
+      case "turn_complete": {
+        cache.total_turns += 1;
+        break;
+      }
+
+      case "turn_error": {
+        cache.total_turn_errors += 1;
+        const errType = event.error_type || "unknown";
+        cache.turn_errors[errType] = (cache.turn_errors[errType] || 0) + 1;
+        break;
+      }
+
+      case "slash_command": {
+        const { command } = event;
+        cache.slash_command_counts[command] =
+          (cache.slash_command_counts[command] || 0) + 1;
+        const trackKey = "cmd:" + command;
+        if (!cache.dynamic_badge_tracks[trackKey]) {
+          cache.dynamic_badge_tracks[trackKey] = { count: 0, earned_tiers: [] };
+        }
+        cache.dynamic_badge_tracks[trackKey].count += 1;
+        break;
+      }
+
+      case "subagent_start": {
+        cache.total_subagents += 1;
+        const agentType = event.agent_type || "unknown";
+        cache.subagent_counts[agentType] =
+          (cache.subagent_counts[agentType] || 0) + 1;
+        break;
+      }
+
+      case "subagent_stop": {
+        break;
+      }
+
+      case "xp_award": {
+        cache.total_xp += event.amount;
         cache.xp_log.push({
-          timestamp,
-          amount,
-          reason,
+          ts,
+          amount: event.amount,
+          reason: event.reason,
           running_total: cache.total_xp,
         });
         break;
       }
 
-      case 'badge_earned': {
-        // Avoid duplicates
-        if (!cache.badges_earned.find((b) => b.badge_id === badge_id)) {
+      case "badge_earned": {
+        if (!cache.badges_earned.find((b) => b.badge_id === event.badge_id)) {
           cache.badges_earned.push({
-            badge_id,
-            badge_name,
-            badge_tier,
-            earned_at: timestamp,
+            badge_id: event.badge_id,
+            badge_name: event.badge_name,
+            badge_tier: event.badge_tier,
+            earned_at: ts,
           });
         }
         break;
       }
 
-      case 'history_import': {
-        if (!cache.imported_session_ids.includes(session_id)) {
-          cache.imported_session_ids.push(session_id);
+      case "history_import": {
+        if (!cache.imported_session_ids.includes(sid)) {
+          cache.imported_session_ids.push(sid);
         }
         break;
       }
@@ -347,19 +392,16 @@ class Storage {
   getStats() {
     const cache = this.ensureFreshCache();
 
-    // Calculate success rate
     const successRate =
       cache.total_tools > 0
         ? (((cache.total_tools - cache.total_tool_failures) / cache.total_tools) * 100).toFixed(1)
         : 0;
 
-    // Count unique tools
     const uniqueTools = Object.keys(cache.tool_counts).length;
 
-    // Get top tools
     const topTools = Object.entries(cache.tool_counts)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
+      .slice(0, 6)
       .map(([name, count]) => ({ name, count }));
 
     return {
@@ -370,12 +412,18 @@ class Storage {
       total_tool_failures: cache.total_tool_failures,
       total_turns: cache.total_turns,
       total_seconds: cache.total_seconds,
+      total_turn_errors: cache.total_turn_errors,
+      total_subagents: cache.total_subagents,
       current_streak: cache.current_streak,
       longest_streak: cache.longest_streak,
       last_active_date: cache.last_active_date,
       success_rate: successRate,
       unique_tools: uniqueTools,
       top_tools: topTools,
+      slash_command_counts: cache.slash_command_counts,
+      subagent_counts: cache.subagent_counts,
+      turn_errors: cache.turn_errors,
+      tool_counts: cache.tool_counts,
     };
   }
 
@@ -431,14 +479,47 @@ class Storage {
     };
   }
 
+  getSessions() {
+    return this.ensureFreshCache().sessions;
+  }
+
+  getWeeklySnapshots() {
+    return this.ensureFreshCache().weekly_snapshots;
+  }
+
+  setWeeklySnapshot(weekKey, snapshot) {
+    const cache = this.ensureFreshCache();
+    cache.weekly_snapshots[weekKey] = snapshot;
+    this._saveCache(cache);
+  }
+
+  getDynamicBadgeTracks() {
+    return this.ensureFreshCache().dynamic_badge_tracks;
+  }
+
+  getLastWeeklySummaryShown() {
+    return this.ensureFreshCache().last_weekly_summary_shown;
+  }
+
+  setLastWeeklySummaryShown(dateStr) {
+    const cache = this.ensureFreshCache();
+    cache.last_weekly_summary_shown = dateStr;
+    this._saveCache(cache);
+  }
+
+  getSlashCommandCounts() {
+    return this.ensureFreshCache().slash_command_counts;
+  }
+
   // ───────────────────────────────────────────────────────────────────────────
   // XP Methods
   // ───────────────────────────────────────────────────────────────────────────
 
-  addXP(amount, reason = 'general') {
+  addXP(amount, reason = "general") {
     this.appendEvent({
-      type: 'xp_award',
-      timestamp: new Date().toISOString(),
+      type: "xp_award",
+      ts: new Date().toISOString(),
+      sid: null,
       amount,
       reason,
     });
@@ -453,7 +534,7 @@ class Storage {
     const today = new Date().toISOString().split('T')[0];
 
     return cache.xp_log
-      .filter((entry) => entry.timestamp.startsWith(today))
+      .filter((entry) => entry.ts && entry.ts.startsWith(today))
       .reduce((sum, entry) => sum + entry.amount, 0);
   }
 
@@ -463,8 +544,9 @@ class Storage {
 
   recordBadge(badgeId, badgeName, badgeTier) {
     this.appendEvent({
-      type: 'badge_earned',
-      timestamp: new Date().toISOString(),
+      type: "badge_earned",
+      ts: new Date().toISOString(),
+      sid: null,
       badge_id: badgeId,
       badge_name: badgeName,
       badge_tier: badgeTier,
@@ -546,7 +628,7 @@ class Storage {
 
   purge() {
     // Delete all data files
-    const files = [this.eventsFile, this.cacheFile, this.syncCursorFile, this.currentSessionFile];
+    const files = [this.eventsFile, this.cacheFile, this.syncCursorFile];
     for (const file of files) {
       if (fs.existsSync(file)) {
         fs.unlinkSync(file);
@@ -564,9 +646,9 @@ class Storage {
 
   markSessionImported(id) {
     this.appendEvent({
-      type: 'history_import',
-      timestamp: new Date().toISOString(),
-      session_id: id,
+      type: "history_import",
+      ts: new Date().toISOString(),
+      sid: id,
     });
   }
 
