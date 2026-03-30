@@ -1,6 +1,7 @@
 {
   "name": "orank",
   "version": "0.1.0",
+  "type": "module",
   "description": "orank — your open AI score. Gamification, badges, and ranking for Claude Code users.",
   "main": "scripts/cli.js",
   "scripts": {
@@ -11,14 +12,15 @@
     "privacy": "node scripts/cli.js privacy",
     "integrity": "node scripts/cli.js integrity",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "lint": "biome check scripts/ tests/",
+    "format": "biome format --write scripts/ tests/",
+    "check": "biome check --write scripts/ tests/"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.0",
+    "vitest": "^3.2.4"
   },
   "dependencies": {},
-  "devDependencies": {
-    "vitest": "^3.1.1",
-    "@vitest/coverage-v8": "^3.1.1"
-  },
   "keywords": ["claude", "claude-code", "plugin", "gamification", "ranking", "badges"],
   "author": "Sedhu <sedhuait@gmail.com>",
   "license": "MIT",
@@ -28,6 +30,6 @@
     "url": "https://github.com/sedhuait/orank"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.0.0"
   }
 }
