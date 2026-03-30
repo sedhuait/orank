@@ -1,5 +1,3 @@
-"use strict";
-
 let counter = 0;
 
 function uniqueId() {
@@ -157,7 +155,7 @@ function buildSession({ sid, startTs, endTs, tools = [], failures = [], turns = 
   return events;
 }
 
-module.exports = {
+export {
   uniqueId,
   sessionStartEvent,
   sessionEndEvent,

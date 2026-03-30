@@ -1,19 +1,11 @@
-"use strict";
-
-const fs = require("fs");
-const os = require("os");
-const path = require("path");
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { Storage } from "../../scripts/storage.js";
 
 function createTestStorage() {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "orank-test-"));
-  process.env.CLAUDE_PLUGIN_DATA = tmpDir;
-
-  // Clear module cache so Storage picks up the new env var
-  delete require.cache[require.resolve("../../scripts/storage")];
-  delete require.cache[require.resolve("../../scripts/badges")];
-
-  const { Storage } = require("../../scripts/storage");
-  const storage = new Storage();
+  const storage = new Storage(tmpDir);
 
   return {
     storage,
@@ -24,23 +16,16 @@ function createTestStorage() {
       } catch {
         // ignore cleanup errors
       }
-      delete process.env.CLAUDE_PLUGIN_DATA;
     },
   };
 }
 
-/**
- * Write events to a storage's events.jsonl file directly.
- */
 function writeEvents(tmpDir, events) {
   const eventsFile = path.join(tmpDir, "events.jsonl");
   const content = events.map((e) => JSON.stringify(e)).join("\n") + "\n";
   fs.writeFileSync(eventsFile, content, "utf8");
 }
 
-/**
- * Read all events from a storage's events.jsonl file.
- */
 function readEvents(tmpDir) {
   const eventsFile = path.join(tmpDir, "events.jsonl");
   if (!fs.existsSync(eventsFile)) return [];
@@ -51,4 +36,4 @@ function readEvents(tmpDir) {
     .map((line) => JSON.parse(line));
 }
 
-module.exports = { createTestStorage, writeEvents, readEvents };
+export { createTestStorage, writeEvents, readEvents };
