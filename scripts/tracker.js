@@ -7,20 +7,21 @@
  * Must be fast — runs on every hook event.
  */
 
-"use strict";
+import fs from "node:fs";
+import { execSync } from "node:child_process";
+import { Storage } from "./storage.js";
 
-const { Storage } = require("./storage");
-const { execSync } = require("child_process");
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ────────────────────���─────────────────────────────────────────────
 
 function getGitBranch() {
   try {
-    return execSync("git rev-parse --abbrev-ref HEAD", {
-      encoding: "utf-8",
-      timeout: 2000,
-      stdio: ["pipe", "pipe", "pipe"],
-    }).trim() || null;
+    return (
+      execSync("git rev-parse --abbrev-ref HEAD", {
+        encoding: "utf-8",
+        timeout: 2000,
+        stdio: ["pipe", "pipe", "pipe"],
+      }).trim() || null
+    );
   } catch {
     return null;
   }
@@ -28,10 +29,10 @@ function getGitBranch() {
 
 function readStdin() {
   try {
-    const fd = require("fs").openSync("/dev/stdin", "r");
+    const fd = fs.openSync("/dev/stdin", "r");
     const buf = Buffer.alloc(65536);
-    const bytesRead = require("fs").readSync(fd, buf, 0, buf.length);
-    require("fs").closeSync(fd);
+    const bytesRead = fs.readSync(fd, buf, 0, buf.length);
+    fs.closeSync(fd);
     if (bytesRead === 0) return null;
     return JSON.parse(buf.toString("utf8", 0, bytesRead));
   } catch {
@@ -39,7 +40,7 @@ function readStdin() {
   }
 }
 
-// ── Main ─────────────────────────────────────────────────────────────────────
+// ── Main ────────────────────────────��────────────────────────────────────────
 
 function main() {
   const input = readStdin();
@@ -77,9 +78,7 @@ function main() {
 
     case "PostToolUse": {
       const toolName = input.tool_name || "unknown";
-      const filePath = input.tool_input
-        ? input.tool_input.file_path || null
-        : null;
+      const filePath = input.tool_input ? input.tool_input.file_path || null : null;
       storage.appendEvent({
         type: "tool_use",
         ts,
@@ -113,9 +112,7 @@ function main() {
     }
 
     case "StopFailure": {
-      const errorType = input.error_type
-        || input.reason
-        || "unknown";
+      const errorType = input.error_type || input.reason || "unknown";
       storage.appendEvent({
         type: "turn_error",
         ts,
@@ -126,7 +123,6 @@ function main() {
     }
 
     case "UserPromptSubmit": {
-      // Privacy: only extract slash command name, never store prompt
       const prompt = input.prompt || "";
       const match = prompt.match(/^\s*\/(\S+)/);
       if (match) {
@@ -141,8 +137,6 @@ function main() {
     }
 
     case "PreToolUse": {
-      // Only fires for Skill tool (matcher in hooks.json).
-      // Extract the skill name being invoked.
       if (input.tool_name === "Skill" && input.tool_input) {
         const skillName = input.tool_input.skill || null;
         if (skillName) {
@@ -180,7 +174,6 @@ function main() {
     }
 
     default:
-      // Unknown hook event — exit silently
       break;
   }
 }

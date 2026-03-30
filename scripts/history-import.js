@@ -1,14 +1,12 @@
-'use strict';
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
 
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
+import { Storage } from "./storage.js";
 
-const { Storage } = require('./storage');
-
-const CLAUDE_DIR = path.join(os.homedir(), '.claude');
-const HISTORY_FILE = path.join(CLAUDE_DIR, 'history.jsonl');
-const PROJECTS_DIR = path.join(CLAUDE_DIR, 'projects');
+const CLAUDE_DIR = path.join(os.homedir(), ".claude");
+const HISTORY_FILE = path.join(CLAUDE_DIR, "history.jsonl");
+const PROJECTS_DIR = path.join(CLAUDE_DIR, "projects");
 
 class HistoryImporter {
   constructor(storage) {
@@ -44,8 +42,8 @@ class HistoryImporter {
     }
 
     try {
-      const content = fs.readFileSync(HISTORY_FILE, 'utf-8');
-      const lines = content.split('\n').filter((line) => line.trim());
+      const content = fs.readFileSync(HISTORY_FILE, "utf-8");
+      const lines = content.split("\n").filter((line) => line.trim());
 
       for (const line of lines) {
         try {
@@ -70,11 +68,11 @@ class HistoryImporter {
             turns: turns,
             toolCounts: entry.toolCounts || entry.tool_counts || {},
           };
-        } catch (e) {
+        } catch {
           // skip
         }
       }
-    } catch (e) {
+    } catch {
       // skip
     }
   }
@@ -93,12 +91,12 @@ class HistoryImporter {
             const fullPath = path.join(dir, entry.name);
 
             if (entry.isDirectory()) {
-              const indexFile = path.join(fullPath, 'sessions-index.json');
+              const indexFile = path.join(fullPath, "sessions-index.json");
 
               if (fs.existsSync(indexFile)) {
                 try {
-                  const data = JSON.parse(fs.readFileSync(indexFile, 'utf-8'));
-                  const sessionsList = Array.isArray(data) ? data : (data.sessions || []);
+                  const data = JSON.parse(fs.readFileSync(indexFile, "utf-8"));
+                  const sessionsList = Array.isArray(data) ? data : data.sessions || [];
 
                   for (const s of sessionsList) {
                     const sessionId = s.sessionId || s.id;
@@ -122,7 +120,7 @@ class HistoryImporter {
                       toolCounts: toolCounts,
                     };
                   }
-                } catch (e) {
+                } catch {
                   // skip
                 }
               }
@@ -132,13 +130,13 @@ class HistoryImporter {
               }
             }
           }
-        } catch (e) {
+        } catch {
           // skip
         }
       };
 
       scanDir(PROJECTS_DIR);
-    } catch (e) {
+    } catch {
       // skip
     }
   }
@@ -220,7 +218,7 @@ class HistoryImporter {
         this.storage.addXP(50, "History import: session " + session.id);
 
         this.imported += 1;
-      } catch (e) {
+      } catch {
         this.skipped += 1;
       }
     }
@@ -232,4 +230,4 @@ class HistoryImporter {
   }
 }
 
-module.exports = { HistoryImporter };
+export { HistoryImporter };
