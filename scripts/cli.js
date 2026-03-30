@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-"use strict";
-
 /**
  * orank CLI — main entry point for /orank commands
  *
@@ -19,18 +17,15 @@
  *   integrity   — Run anomaly check
  */
 
-const { Storage } = require("./storage");
-const { BadgeEngine, getTier, TIERS } = require("./badges");
-const { HistoryImporter } = require("./history-import");
-const {
-  runIntegrityReport,
-  formatIntegrityReport,
-  loadAllEvents,
-} = require("./integrity");
-const { computeMetrics, computeTrends, getWeekKey } = require("./metrics");
-const { detectPatterns } = require("./patterns");
+import { Storage } from "./storage.js";
+import { BadgeEngine, getTier, TIERS } from "./badges.js";
+import { HistoryImporter } from "./history-import.js";
+import { runIntegrityReport, formatIntegrityReport, loadAllEvents } from "./integrity.js";
+import { computeMetrics, computeTrends, getWeekKey } from "./metrics.js";
+import { detectPatterns } from "./patterns.js";
+import { getCurrentTier, TIER_NAMES, selectThresholds } from "./dynamic-badges.js";
 
-// ── Formatting Helpers ──────────────────────────────────────────────────────
+// ── Formatting Helpers ─────────��────────────────────────────────────────────
 
 function fmt(n) {
   if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
@@ -51,7 +46,7 @@ function bar(pct, width = 20) {
   return `${"█".repeat(filled)}${"░".repeat(width - filled)} ${Math.round(pct)}%`;
 }
 
-// ── Commands ────────────────────────────────────────────────────────────────
+// ── Commands ────────���───────────────────────────────��───────────────────────
 
 function getCurrentMetrics(storage) {
   const stats = storage.getStats();
@@ -67,14 +62,11 @@ function getCurrentMetrics(storage) {
     sessions,
   });
 
-  // Get previous week's snapshot for trends
   const weekKey = getWeekKey(new Date());
   const snapshots = storage.getWeeklySnapshots();
 
-  // Save current week's snapshot
   storage.setWeeklySnapshot(weekKey, metrics);
 
-  // Find previous week
   const allWeeks = Object.keys(snapshots).sort();
   const currentIdx = allWeeks.indexOf(weekKey);
   const prevWeek = currentIdx > 0 ? snapshots[allWeeks[currentIdx - 1]] : null;
@@ -91,7 +83,6 @@ function trendStr(value, trend) {
 function starRating(trackKey, dynamicTracks) {
   const track = dynamicTracks[trackKey];
   if (!track) return "";
-  const { getCurrentTier, TIER_NAMES, selectThresholds } = require("./dynamic-badges");
   const thresholds = selectThresholds(track.count, 1);
   const tier = getCurrentTier(track.count, thresholds);
   if (!tier) return "";
@@ -111,7 +102,6 @@ function cmdStats(storage) {
 
   const lines = [];
 
-  // Weekly summary (passive — first call of the week)
   const weekKey = getWeekKey(new Date());
   const lastSummary = storage.getLastWeeklySummaryShown();
   const snapshots = storage.getWeeklySnapshots();
@@ -123,18 +113,23 @@ function cmdStats(storage) {
     const prevGrade = prevWeek.grade || "?";
     const weekBadges = newBadges.length;
     const weekHours = Math.round(stats.total_seconds / 3600);
-    lines.push(`  \uD83D\uDCCA Last week: Efficiency ${prevGrade} \u2192 ${metrics.grade} (\u2191${Math.abs(metrics.composite - (prevWeek.composite || 0))}%), ${weekBadges} new badges, ${weekHours}h active`);
+    lines.push(
+      `  \uD83D\uDCCA Last week: Efficiency ${prevGrade} \u2192 ${metrics.grade} (\u2191${Math.abs(metrics.composite - (prevWeek.composite || 0))}%), ${weekBadges} new badges, ${weekHours}h active`,
+    );
     lines.push("");
     storage.setLastWeeklySummaryShown(weekKey);
   }
 
   lines.push("");
   lines.push("  orank \u2014 your open AI score");
-  lines.push("  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
+  lines.push(
+    "  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
+  );
   lines.push("");
 
-  // Header with efficiency
-  lines.push(`  ${tier.icon}  ${tier.name}    ${fmt(stats.total_xp)} XP    Today: +${fmt(todayXP)} XP    Efficiency: ${metrics.grade} (${metrics.composite}) ${trends.composite.arrow}`);
+  lines.push(
+    `  ${tier.icon}  ${tier.name}    ${fmt(stats.total_xp)} XP    Today: +${fmt(todayXP)} XP    Efficiency: ${metrics.grade} (${metrics.composite}) ${trends.composite.arrow}`,
+  );
   if (tier.nextTier) {
     lines.push(`  \u2192 ${tier.nextTier}: ${bar(parseFloat(tier.progress))}  (${fmt(tier.nextTierXP - stats.total_xp)} to go)`);
   } else {
@@ -142,15 +137,23 @@ function cmdStats(storage) {
   }
   lines.push("");
 
-  // Key Stats with trends
-  lines.push("  \u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510");
-  lines.push(`  \u2502  Sessions: ${String(stats.total_sessions).padEnd(8)} Tools: ${String(fmt(stats.total_tool_uses)).padEnd(10)} Success: ${trendStr(stats.success_rate + "%", trends.success_rate)}`);
-  lines.push(`  \u2502  Turns:    ${String(fmt(stats.total_turns)).padEnd(8)} Time:  ${String(formatDuration(stats.total_seconds)).padEnd(10)} Breadth: ${stats.unique_tools}/${Object.keys(stats.tool_counts).length}`);
-  lines.push(`  \u2502  Streak:   ${String(stats.current_streak + "d").padEnd(8)} Best:  ${String(stats.longest_streak + "d").padEnd(10)} Retries: ${trendStr(metrics.retry_rate + "%", trends.retry_rate)}`);
-  lines.push("  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518");
+  lines.push(
+    "  \u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510",
+  );
+  lines.push(
+    `  \u2502  Sessions: ${String(stats.total_sessions).padEnd(8)} Tools: ${String(fmt(stats.total_tool_uses)).padEnd(10)} Success: ${trendStr(stats.success_rate + "%", trends.success_rate)}`,
+  );
+  lines.push(
+    `  \u2502  Turns:    ${String(fmt(stats.total_turns)).padEnd(8)} Time:  ${String(formatDuration(stats.total_seconds)).padEnd(10)} Breadth: ${stats.unique_tools}/${Object.keys(stats.tool_counts).length}`,
+  );
+  lines.push(
+    `  \u2502  Streak:   ${String(stats.current_streak + "d").padEnd(8)} Best:  ${String(stats.longest_streak + "d").padEnd(10)} Retries: ${trendStr(metrics.retry_rate + "%", trends.retry_rate)}`,
+  );
+  lines.push(
+    "  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518",
+  );
   lines.push("");
 
-  // Top Tools with star ratings
   if (stats.top_tools.length > 0) {
     lines.push("  Top Tools:");
     for (const tool of stats.top_tools.slice(0, 6)) {
@@ -161,7 +164,6 @@ function cmdStats(storage) {
     lines.push("");
   }
 
-  // Next Badges (pending)
   if (badges.nextBadges && badges.nextBadges.length > 0) {
     lines.push("  Next Badges:");
     for (const b of badges.nextBadges.slice(0, 5)) {
@@ -170,7 +172,6 @@ function cmdStats(storage) {
     lines.push("");
   }
 
-  // Badge summary
   lines.push(`  Badges: ${badges.earned.length}/${badges.total} earned    Pending: ${badges.total - badges.earned.length}`);
   if (newBadges.length > 0) {
     lines.push("");
@@ -181,7 +182,6 @@ function cmdStats(storage) {
   }
   lines.push("");
 
-  // Activity heatmap
   const contribution = storage.getContributionData(4);
   if (contribution.some((d) => d.count > 0)) {
     lines.push("  Activity (last 28 days):");
@@ -197,7 +197,9 @@ function cmdStats(storage) {
   }
 
   lines.push("  orank.me \u2014 share your profile (coming soon)");
-  lines.push("  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
+  lines.push(
+    "  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
+  );
   lines.push("");
 
   console.log(lines.join("\n"));
@@ -213,9 +215,8 @@ function cmdInsights(storage) {
   const currentIdx = allWeeks.indexOf(weekKey);
   const prevWeek = currentIdx > 0 ? snapshots[allWeeks[currentIdx - 1]] : null;
 
-  // Determine week date range
   const now = new Date();
-  const dayOfWeek = (now.getDay() + 6) % 7; // Monday = 0
+  const dayOfWeek = (now.getDay() + 6) % 7;
   const weekStart = new Date(now);
   weekStart.setDate(now.getDate() - dayOfWeek);
   const weekEnd = new Date(weekStart);
@@ -225,20 +226,22 @@ function cmdInsights(storage) {
   const lines = [];
   lines.push("");
   lines.push(`  orank \u2014 Weekly Insights (${fmtDate(weekStart)}\u2013${fmtDate(weekEnd)})`);
-  lines.push("  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
+  lines.push(
+    "  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
+  );
   lines.push("");
 
-  // Efficiency headline
   if (prevWeek) {
     const delta = metrics.composite - prevWeek.composite;
     const arrow = delta >= 0 ? "\u2191" : "\u2193";
-    lines.push(`  Efficiency: ${metrics.grade} (${metrics.composite})  \u2190 was ${prevWeek.grade} (${prevWeek.composite}) last week  ${arrow} ${Math.abs(delta).toFixed(1)}%`);
+    lines.push(
+      `  Efficiency: ${metrics.grade} (${metrics.composite})  \u2190 was ${prevWeek.grade} (${prevWeek.composite}) last week  ${arrow} ${Math.abs(delta).toFixed(1)}%`,
+    );
   } else {
     lines.push(`  Efficiency: ${metrics.grade} (${metrics.composite})  (first week \u2014 no comparison yet)`);
   }
   lines.push("");
 
-  // What improved / Watch out
   if (prevWeek) {
     const improvements = [];
     const warnings = [];
@@ -278,7 +281,6 @@ function cmdInsights(storage) {
     }
   }
 
-  // Workflow patterns
   if (patterns.length > 0) {
     lines.push("  Workflow patterns detected:");
     for (const p of patterns.slice(0, 5)) {
@@ -287,7 +289,6 @@ function cmdInsights(storage) {
     lines.push("");
   }
 
-  // Slash commands
   const cmdCounts = stats.slash_command_counts || {};
   const cmds = Object.entries(cmdCounts).sort((a, b) => b[1] - a[1]);
   if (cmds.length > 0) {
@@ -296,7 +297,6 @@ function cmdInsights(storage) {
     lines.push("");
   }
 
-  // Milestone alerts (next badges)
   const engine = new BadgeEngine(storage);
   engine.evaluate();
   const badges = engine.getSummary();
@@ -309,7 +309,9 @@ function cmdInsights(storage) {
     lines.push("");
   }
 
-  lines.push("  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
+  lines.push(
+    "  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
+  );
   lines.push("");
 
   console.log(lines.join("\n"));
@@ -367,11 +369,10 @@ function cmdImport(storage) {
   const result = importer.importAll();
   console.log(`  Imported: ${result.imported} sessions (+${result.imported * 50} XP)`);
 
-  // Evaluate badges after import
   const engine = new BadgeEngine(storage);
   const newBadges = engine.evaluate();
   if (newBadges.length > 0) {
-    console.log(`\n  Badges unlocked:`);
+    console.log("\n  Badges unlocked:");
     for (const b of newBadges) {
       console.log(`     ${b.icon}  ${b.name} — ${b.description}`);
     }
@@ -395,11 +396,9 @@ function cmdPrivacy(storage) {
   const lines = [];
   lines.push("\n  orank — Privacy & Data\n");
 
-  // Status
   lines.push(isPaused ? "  [PAUSED] Tracking is paused" : "  [ACTIVE] Tracking is active");
   lines.push("  All data stays on your machine. Sync is not yet available.\n");
 
-  // What we collect
   lines.push("  What orank collects:");
   lines.push("     Session timestamps (start/end)");
   lines.push("     Tool names and outcomes (success/failure)");
@@ -407,7 +406,6 @@ function cmdPrivacy(storage) {
   lines.push("     Working directory path");
   lines.push("     Git branch name\n");
 
-  // What we never collect
   lines.push("  What orank NEVER collects:");
   lines.push("     Your prompts or messages");
   lines.push("     Claude's responses");
@@ -415,15 +413,13 @@ function cmdPrivacy(storage) {
   lines.push("     API keys or credentials");
   lines.push("     Personal information\n");
 
-  // Storage
   lines.push("  Storage:");
   lines.push(`     Location:  ${dataDir}`);
   lines.push(`     Size:      ${(dataSize / 1024).toFixed(1)} KB`);
   lines.push(`     Sessions:  ${stats.total_sessions}`);
   lines.push(`     Events:    ${stats.total_tool_uses + stats.total_turns + stats.total_sessions}`);
-  lines.push(`     Network:   Offline only\n`);
+  lines.push("     Network:   Offline only\n");
 
-  // Commands
   lines.push("  Data controls:");
   lines.push("     /orank export   — full JSON dump");
   lines.push("     /orank pause    — stop recording");
@@ -471,7 +467,7 @@ function cmdIntegrity() {
   console.log(formatIntegrityReport(report));
 }
 
-// ── Router ──────────────────────────────────────────────────────────────────
+// ── Router ──��──────────────────────────���────────────────────────────────────
 
 function main() {
   const args = process.argv.slice(2);
@@ -509,7 +505,6 @@ function main() {
     case "insights":
       cmdInsights(storage);
       break;
-    // Deferred commands
     case "sync":
     case "login":
     case "logout":
@@ -518,7 +513,7 @@ function main() {
       break;
     default:
       console.log(`\n  Unknown command: ${command}`);
-      console.log("  Run /orang for stats or /orank --help for commands.\n");
+      console.log("  Run /orank for stats or /orank --help for commands.\n");
   }
 }
 
