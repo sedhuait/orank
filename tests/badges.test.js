@@ -722,3 +722,149 @@ describe("BadgeEngine.getSummary()", () => {
     expect(totalCurated).toBeGreaterThanOrEqual(BADGE_DEFINITIONS.length);
   });
 });
+
+// ── Additional coverage tests ────────────────────────────────────────────────
+
+describe("success-rate-98 badge (Flawless Executor)", () => {
+  const badge = BADGE_DEFINITIONS.find((b) => b.id === "success-rate-98");
+
+  test("below min 500 uses returns progress < 50", () => {
+    const result = badge.check({ total_tool_uses: 200, success_rate: "99" });
+    expect(result.earned).toBe(false);
+    expect(result.progress).toBeLessThan(50);
+  });
+
+  test("at 500 uses with rate 97 returns not earned", () => {
+    const result = badge.check({ total_tool_uses: 500, success_rate: "97" });
+    expect(result.earned).toBe(false);
+  });
+
+  test("at 500 uses with rate 98 returns earned", () => {
+    const result = badge.check({ total_tool_uses: 500, success_rate: "98" });
+    expect(result.earned).toBe(true);
+    expect(result.progress).toBeGreaterThanOrEqual(100);
+  });
+
+  test("at 500 uses with rate 100 returns earned", () => {
+    const result = badge.check({ total_tool_uses: 500, success_rate: "100" });
+    expect(result.earned).toBe(true);
+  });
+});
+
+describe("BadgeEngine.evaluate() with dynamic badges and weekly snapshots", () => {
+  test("evaluates dynamic badges from tracks and awards XP", () => {
+    const storage = createMockStorage({ total_tool_uses: 100, total_sessions: 1 });
+    storage.getDynamicBadgeTracks = () => ({
+      "tool:Edit": { count: 50, earned_tiers: [] },
+    });
+    const engine = new BadgeEngine(storage);
+    const newlyEarned = engine.evaluate();
+    // Should have earned dynamic bronze badge for Edit (threshold 10 for common tool)
+    const dynamicBadge = newlyEarned.find((b) => b.isDynamic && b.trackKey === "tool:Edit");
+    expect(dynamicBadge).toBeDefined();
+    expect(storage.recordBadge).toHaveBeenCalled();
+    expect(storage.addXP).toHaveBeenCalled();
+  });
+
+  test("does not re-award already earned dynamic badges", () => {
+    const storage = createMockStorage({ total_tool_uses: 100, total_sessions: 1 });
+    storage.getDynamicBadgeTracks = () => ({
+      "tool:Edit": { count: 50, earned_tiers: [] },
+    });
+    storage.getBadges = () => ({
+      earned: [
+        { badge_id: "dynamic:tool:Edit:bronze", badge_name: "Edit Novice", badge_tier: "bronze", earned_at: "2026-03-01T00:00:00Z" },
+        { badge_id: "dynamic:tool:Edit:silver", badge_name: "Edit Adept", badge_tier: "silver", earned_at: "2026-03-01T00:00:00Z" },
+      ],
+    });
+    const engine = new BadgeEngine(storage);
+    const newlyEarned = engine.evaluate();
+    // Should NOT re-award bronze or silver
+    const reAwarded = newlyEarned.filter(
+      (b) => b.id === "dynamic:tool:Edit:bronze" || b.id === "dynamic:tool:Edit:silver"
+    );
+    expect(reAwarded).toHaveLength(0);
+  });
+
+  test("processes weekly snapshots for improving weeks", () => {
+    const storage = createMockStorage({ total_sessions: 1 });
+    storage.getWeeklySnapshots = () => ({
+      "2026-W10": { composite: 60 },
+      "2026-W11": { composite: 65 },
+      "2026-W12": { composite: 70 },
+    });
+    const engine = new BadgeEngine(storage);
+    engine.evaluate();
+    // Just verify it runs without error; improving_weeks = 2
+  });
+});
+
+describe("BadgeEngine.getSummary() with dynamic badges and weekly snapshots", () => {
+  test("merges earned dynamic badges into summary", () => {
+    const storage = createMockStorage({ total_tool_uses: 100, total_sessions: 1 });
+    storage.getDynamicBadgeTracks = () => ({
+      "tool:Edit": { count: 50, earned_tiers: [] },
+    });
+    const engine = new BadgeEngine(storage);
+    const summary = engine.getSummary();
+    // Should include dynamic badges
+    const dynamicEarned = summary.earned.filter((b) => b.isDynamic);
+    expect(dynamicEarned.length).toBeGreaterThan(0);
+  });
+
+  test("merges already-recorded dynamic badges with earned_at", () => {
+    const storage = createMockStorage({ total_tool_uses: 100, total_sessions: 1 });
+    storage.getDynamicBadgeTracks = () => ({
+      "tool:Edit": { count: 50, earned_tiers: [] },
+    });
+    storage.getBadges = () => ({
+      earned: [
+        { badge_id: "dynamic:tool:Edit:bronze", badge_name: "Edit Novice", badge_tier: "bronze", earned_at: "2026-03-01T00:00:00Z" },
+      ],
+    });
+    const engine = new BadgeEngine(storage);
+    const summary = engine.getSummary();
+    const editBronze = summary.earned.find((b) => b.id === "dynamic:tool:Edit:bronze");
+    expect(editBronze).toBeDefined();
+    expect(editBronze.earned_at).toBe("2026-03-01T00:00:00Z");
+  });
+
+  test("puts unearned dynamic badges with progress > 0 in inProgress", () => {
+    const storage = createMockStorage({ total_tool_uses: 100, total_sessions: 1 });
+    storage.getDynamicBadgeTracks = () => ({
+      "tool:Edit": { count: 20, earned_tiers: [] },
+    });
+    const engine = new BadgeEngine(storage);
+    const summary = engine.getSummary();
+    const inProgressDynamic = summary.inProgress.filter((b) => b.isDynamic);
+    expect(inProgressDynamic.length).toBeGreaterThan(0);
+  });
+
+  test("puts unearned dynamic badges with progress = 0 in locked", () => {
+    const storage = createMockStorage({ total_tool_uses: 100, total_sessions: 1 });
+    storage.getDynamicBadgeTracks = () => ({
+      "tool:Edit": { count: 50, earned_tiers: [] },
+    });
+    const engine = new BadgeEngine(storage);
+    const summary = engine.getSummary();
+    const lockedDynamic = summary.locked.filter((b) => b.isDynamic);
+    expect(lockedDynamic.length).toBeGreaterThan(0);
+  });
+
+  test("processes weekly snapshots for improving weeks in summary", () => {
+    const storage = createMockStorage({ total_sessions: 1 });
+    storage.getWeeklySnapshots = () => ({
+      "2026-W10": { composite: 60 },
+      "2026-W11": { composite: 65 },
+      "2026-W12": { composite: 70 },
+      "2026-W13": { composite: 75 },
+      "2026-W14": { composite: 80 },
+    });
+    const engine = new BadgeEngine(storage);
+    const summary = engine.getSummary();
+    // trend-setter requires 4 improving weeks - should be in progress with progress
+    const trendSetter = summary.inProgress.find((b) => b.id === "trend-setter") ||
+      summary.earned.find((b) => b.id === "trend-setter");
+    expect(trendSetter).toBeDefined();
+  });
+});

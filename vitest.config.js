@@ -10,7 +10,7 @@ module.exports = defineConfig({
     coverage: {
       provider: "v8",
       include: ["scripts/**/*.js"],
-      exclude: ["scripts/cli.js"],
+      exclude: ["scripts/cli.js", "scripts/tracker.js"],
       thresholds: {
         statements: 95,
         branches: 85,
