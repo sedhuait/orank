@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * metrics.js — Efficiency Metrics Engine
  *
@@ -6,11 +5,7 @@
  * All functions are pure — take data in, return scores out.
  */
 
-"use strict";
-
-const { computeWorkflowScore } = require("./patterns");
-
-// ── Grade Mapping ───────────────────────────────────────────────────────────
+import { computeWorkflowScore } from "./patterns.js";
 
 const GRADES = [
   { min: 95, grade: "A+" },
@@ -33,41 +28,22 @@ function getGrade(score) {
   return "F";
 }
 
-// ── Individual Metrics ──────────────────────────────────────────────────────
-
-/**
- * Success Rate: (total_tools - total_failures) / total_tools * 100
- * Returns 0–100
- */
 function computeSuccessRate(totalTools, totalFailures) {
   if (totalTools === 0) return 100;
   return ((totalTools - totalFailures) / totalTools) * 100;
 }
 
-/**
- * Throughput: tools per active session minute.
- * Returns raw value (not 0–100). Normalized later.
- */
 function computeThroughput(totalTools, totalSeconds) {
   if (totalSeconds === 0) return 0;
   const minutes = totalSeconds / 60;
   return totalTools / minutes;
 }
 
-/**
- * Breadth: unique tools used / total distinct tools ever seen.
- * For weekly: unique tools this week / all tools ever seen.
- * Returns 0–100.
- */
 function computeBreadth(uniqueToolsInWindow, totalDistinctToolsEver) {
   if (totalDistinctToolsEver === 0) return 0;
   return (uniqueToolsInWindow / totalDistinctToolsEver) * 100;
 }
 
-/**
- * Retry Rate: consecutive same-tool calls within 30s / total tool calls.
- * Returns 0–100 (lower is better).
- */
 function computeRetryRate(sessions) {
   let totalTools = 0;
   let retries = 0;
@@ -90,9 +66,6 @@ function computeRetryRate(sessions) {
   return (retries / totalTools) * 100;
 }
 
-// ── Composite Score ─────────────────────────────────────────────────────────
-
-// Weights for each dimension
 const WEIGHTS = {
   success_rate: 0.25,
   throughput: 0.20,
@@ -101,34 +74,11 @@ const WEIGHTS = {
   workflow_score: 0.20,
 };
 
-/**
- * Normalize throughput to 0–100 scale.
- * 0 tools/min = 0, 10+ tools/min = 100 (capped).
- */
 function normalizeThroughput(rawThroughput) {
   return Math.min(100, (rawThroughput / 10) * 100);
 }
 
-/**
- * Compute all 5 metrics + composite + grade.
- *
- * @param {Object} params
- * @param {number} params.totalTools
- * @param {number} params.totalFailures
- * @param {number} params.totalSeconds
- * @param {number} params.uniqueToolsInWindow
- * @param {number} params.totalDistinctToolsEver
- * @param {Object} params.sessions — cache.sessions
- * @returns {Object} { success_rate, throughput, breadth, retry_rate, workflow_score, composite, grade }
- */
-function computeMetrics({
-  totalTools,
-  totalFailures,
-  totalSeconds,
-  uniqueToolsInWindow,
-  totalDistinctToolsEver,
-  sessions,
-}) {
+function computeMetrics({ totalTools, totalFailures, totalSeconds, uniqueToolsInWindow, totalDistinctToolsEver, sessions }) {
   const success_rate = computeSuccessRate(totalTools, totalFailures);
   const rawThroughput = computeThroughput(totalTools, totalSeconds);
   const throughput = normalizeThroughput(rawThroughput);
@@ -136,13 +86,12 @@ function computeMetrics({
   const retry_rate = computeRetryRate(sessions);
   const workflow_score = computeWorkflowScore(sessions, totalTools);
 
-  // Composite: weighted average. Retry rate is inverted (lower is better).
   const composite = Math.round(
     success_rate * WEIGHTS.success_rate +
-    throughput * WEIGHTS.throughput +
-    breadth * WEIGHTS.breadth +
-    (100 - retry_rate) * WEIGHTS.retry_rate +
-    workflow_score * WEIGHTS.workflow_score
+      throughput * WEIGHTS.throughput +
+      breadth * WEIGHTS.breadth +
+      (100 - retry_rate) * WEIGHTS.retry_rate +
+      workflow_score * WEIGHTS.workflow_score,
   );
 
   const grade = getGrade(composite);
@@ -158,11 +107,6 @@ function computeMetrics({
   };
 }
 
-// ── Trend Computation ───────────────────────────────────────────────────────
-
-/**
- * Get the ISO week key for a date (e.g., "2026-W13").
- */
 function getWeekKey(date) {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
@@ -172,13 +116,6 @@ function getWeekKey(date) {
   return `${d.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
 }
 
-/**
- * Compute trend arrows for each metric.
- *
- * @param {Object} current — current week's metrics
- * @param {Object|null} previous — previous week's metrics (null if no data)
- * @returns {Object} — { metric_name: { delta: number, arrow: "↑"|"↓"|"" } }
- */
 function computeTrends(current, previous) {
   if (!previous) {
     return {
@@ -197,7 +134,6 @@ function computeTrends(current, previous) {
     let arrow = "";
     if (Math.abs(delta) >= 0.5) {
       if (key === "retry_rate") {
-        // For retry rate, lower is better, so arrow is inverted
         arrow = delta > 0 ? "\u2193" : "\u2191";
       } else {
         arrow = delta > 0 ? "\u2191" : "\u2193";
@@ -209,10 +145,4 @@ function computeTrends(current, previous) {
   return result;
 }
 
-module.exports = {
-  computeMetrics,
-  computeTrends,
-  getWeekKey,
-  getGrade,
-  WEIGHTS,
-};
+export { computeMetrics, computeTrends, getWeekKey, getGrade, WEIGHTS };
