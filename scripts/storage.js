@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * orank — JSONL + Cache Storage Layer
  *
@@ -12,23 +11,25 @@
  * - .paused: sentinel file (pause tracking)
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
 
 class Storage {
-  constructor() {
-    this.dataDir = process.env.CLAUDE_PLUGIN_DATA || path.join(process.env.HOME, '.claude', 'plugins', 'data', 'orank');
-    this.eventsFile = path.join(this.dataDir, 'events.jsonl');
-    this.cacheFile = path.join(this.dataDir, 'cache.json');
-    this.syncCursorFile = path.join(this.dataDir, 'sync-cursor.json');
-    this.pausedFile = path.join(this.dataDir, '.paused');
+  constructor(dataDir) {
+    this.dataDir =
+      dataDir ||
+      process.env.CLAUDE_PLUGIN_DATA ||
+      path.join(os.homedir(), ".claude", "plugins", "data", "orank");
+    this.eventsFile = path.join(this.dataDir, "events.jsonl");
+    this.cacheFile = path.join(this.dataDir, "cache.json");
+    this.syncCursorFile = path.join(this.dataDir, "sync-cursor.json");
+    this.pausedFile = path.join(this.dataDir, ".paused");
 
-    // Ensure data directory exists
     if (!fs.existsSync(this.dataDir)) {
       fs.mkdirSync(this.dataDir, { recursive: true });
     }
 
-    // In-memory cache (lazy-loaded)
     this._cache = null;
   }
 
@@ -36,25 +37,17 @@ class Storage {
     return this.dataDir;
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Event Writing
-  // ───────────────────────────────────────────────────────────────────────────
-
   appendEvent(event) {
-    const line = JSON.stringify(event) + '\n';
+    const line = JSON.stringify(event) + "\n";
     fs.appendFileSync(this.eventsFile, line);
   }
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // Pause/Resume
-  // ───────────────────────────────────────────────────────────────────────────
 
   isPaused() {
     return fs.existsSync(this.pausedFile);
   }
 
   pause() {
-    fs.writeFileSync(this.pausedFile, '');
+    fs.writeFileSync(this.pausedFile, "");
   }
 
   resume() {
@@ -63,13 +56,9 @@ class Storage {
     }
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Cache Management
-  // ───────────────────────────────────────────────────────────────────────────
-
   _loadCache() {
     if (fs.existsSync(this.cacheFile)) {
-      return JSON.parse(fs.readFileSync(this.cacheFile, 'utf8'));
+      return JSON.parse(fs.readFileSync(this.cacheFile, "utf8"));
     }
     return this._emptyCache();
   }
@@ -108,7 +97,7 @@ class Storage {
   }
 
   _saveCache(cache) {
-    fs.writeFileSync(this.cacheFile, JSON.stringify(cache, null, 2), 'utf8');
+    fs.writeFileSync(this.cacheFile, JSON.stringify(cache, null, 2), "utf8");
     this._cache = cache;
   }
 
@@ -131,9 +120,6 @@ class Storage {
     return cache.events_offset < eventsSize;
   }
 
-  /**
-   * Read events from the last known offset and rebuild cache incrementally
-   */
   rebuildCache() {
     let cache = this._loadCache();
     const startOffset = cache.events_offset || 0;
@@ -144,20 +130,19 @@ class Storage {
       return cache;
     }
 
-    const content = fs.readFileSync(this.eventsFile, 'utf8');
+    const content = fs.readFileSync(this.eventsFile, "utf8");
     let currentOffset = 0;
     let lineStart = 0;
 
-    // Process only new events from last offset
     for (let i = 0; i < content.length; i++) {
-      if (content[i] === '\n') {
+      if (content[i] === "\n") {
         if (currentOffset >= startOffset) {
           const line = content.substring(lineStart, i);
           if (line.trim()) {
             try {
               const event = JSON.parse(line);
               this._processEvent(cache, event);
-            } catch (e) {
+            } catch {
               // Skip malformed lines
             }
           }
@@ -167,7 +152,6 @@ class Storage {
       }
     }
 
-    // Recompute derived metrics
     this._recomputeDerived(cache);
 
     cache.events_offset = content.length;
@@ -258,8 +242,7 @@ class Storage {
 
       case "slash_command": {
         const { command } = event;
-        cache.slash_command_counts[command] =
-          (cache.slash_command_counts[command] || 0) + 1;
+        cache.slash_command_counts[command] = (cache.slash_command_counts[command] || 0) + 1;
         const trackKey = "cmd:" + command;
         if (!cache.dynamic_badge_tracks[trackKey]) {
           cache.dynamic_badge_tracks[trackKey] = { count: 0, earned_tiers: [] };
@@ -271,8 +254,7 @@ class Storage {
       case "subagent_start": {
         cache.total_subagents += 1;
         const agentType = event.agent_type || "unknown";
-        cache.subagent_counts[agentType] =
-          (cache.subagent_counts[agentType] || 0) + 1;
+        cache.subagent_counts[agentType] = (cache.subagent_counts[agentType] || 0) + 1;
         break;
       }
 
@@ -313,12 +295,23 @@ class Storage {
   }
 
   _recomputeDerived(cache) {
-    // Recompute streaks from daily_sessions
     this._recomputeStreaks(cache);
+    cache.tier = Storage._tierNameFromXP(cache.total_xp);
+  }
 
-    // Recompute tier from total_xp
-    const tierInfo = this._getTierFromXP(cache.total_xp);
-    cache.tier = tierInfo.name;
+  static _tierNameFromXP(xp) {
+    const tiers = [
+      { name: "Bronze", min: 0 },
+      { name: "Silver", min: 2000 },
+      { name: "Gold", min: 5000 },
+      { name: "Platinum", min: 10000 },
+      { name: "Diamond", min: 20000 },
+    ];
+    let tier = tiers[0];
+    for (const t of tiers) {
+      if (xp >= t.min) tier = t;
+    }
+    return tier.name;
   }
 
   _recomputeStreaks(cache) {
@@ -333,7 +326,6 @@ class Storage {
 
     cache.last_active_date = dates[dates.length - 1];
 
-    // Find longest streak
     let longest = 0;
     let current = 1;
 
@@ -352,30 +344,22 @@ class Storage {
 
     cache.longest_streak = Math.max(longest, 1);
 
-    // Calculate current streak (backward from today or yesterday)
-    const today = new Date().toISOString().split('T')[0];
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const today = new Date().toISOString().split("T")[0];
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
 
     let streak = 0;
     let checkDate = today;
 
-    // Start from today or yesterday
     if (!dates.includes(today)) {
       checkDate = yesterday;
     }
 
     while (dates.includes(checkDate)) {
       streak += 1;
-      checkDate = new Date(new Date(checkDate) - 86400000).toISOString().split('T')[0];
+      checkDate = new Date(new Date(checkDate) - 86400000).toISOString().split("T")[0];
     }
 
     cache.current_streak = streak;
-  }
-
-  _getTierFromXP(xp) {
-    // Lazy require to avoid circular dependencies
-    const { getTier } = require('./badges');
-    return getTier(xp);
   }
 
   ensureFreshCache() {
@@ -384,10 +368,6 @@ class Storage {
     }
     return this._cache;
   }
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // Public Read Methods
-  // ───────────────────────────────────────────────────────────────────────────
 
   getStats() {
     const cache = this.ensureFreshCache();
@@ -429,35 +409,25 @@ class Storage {
 
   getBadges() {
     const cache = this.ensureFreshCache();
-    return {
-      earned: cache.badges_earned,
-    };
+    return { earned: cache.badges_earned };
   }
 
   getContributionData(weeks = 52) {
     const cache = this.ensureFreshCache();
     const result = [];
-
     for (let i = weeks * 7 - 1; i >= 0; i--) {
-      const date = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
+      const date = new Date(Date.now() - i * 86400000).toISOString().split("T")[0];
       const count = cache.daily_sessions[date] || 0;
       result.push({ date, count });
     }
-
     return result;
   }
 
   getToolBreakdown() {
     const cache = this.ensureFreshCache();
-
     const entries = Object.entries(cache.tool_counts).sort((a, b) => b[1] - a[1]);
-
-    if (entries.length === 0) {
-      return [];
-    }
-
+    if (entries.length === 0) return [];
     const total = entries.reduce((sum, [, count]) => sum + count, 0);
-
     return entries.map(([name, count]) => ({
       name,
       count,
@@ -511,10 +481,6 @@ class Storage {
     return this.ensureFreshCache().slash_command_counts;
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // XP Methods
-  // ───────────────────────────────────────────────────────────────────────────
-
   addXP(amount, reason = "general") {
     this.appendEvent({
       type: "xp_award",
@@ -531,16 +497,11 @@ class Storage {
 
   getTodayXP() {
     const cache = this.ensureFreshCache();
-    const today = new Date().toISOString().split('T')[0];
-
+    const today = new Date().toISOString().split("T")[0];
     return cache.xp_log
       .filter((entry) => entry.ts && entry.ts.startsWith(today))
       .reduce((sum, entry) => sum + entry.amount, 0);
   }
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // Badge Persistence
-  // ───────────────────────────────────────────────────────────────────────────
 
   recordBadge(badgeId, badgeName, badgeTier) {
     this.appendEvent({
@@ -553,40 +514,36 @@ class Storage {
     });
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Sync
-  // ───────────────────────────────────────────────────────────────────────────
-
   getSyncCursor() {
     if (fs.existsSync(this.syncCursorFile)) {
-      const data = JSON.parse(fs.readFileSync(this.syncCursorFile, 'utf8'));
+      const data = JSON.parse(fs.readFileSync(this.syncCursorFile, "utf8"));
       return data.offset || 0;
     }
     return 0;
   }
 
   setSyncCursor(offset) {
-    fs.writeFileSync(this.syncCursorFile, JSON.stringify({ offset, timestamp: new Date().toISOString() }, null, 2), 'utf8');
+    fs.writeFileSync(
+      this.syncCursorFile,
+      JSON.stringify({ offset, timestamp: new Date().toISOString() }, null, 2),
+      "utf8",
+    );
   }
 
   getEventsSince(offset) {
-    if (!fs.existsSync(this.eventsFile)) {
-      return [];
-    }
-
-    const content = fs.readFileSync(this.eventsFile, 'utf8');
+    if (!fs.existsSync(this.eventsFile)) return [];
+    const content = fs.readFileSync(this.eventsFile, "utf8");
     const events = [];
     let currentOffset = 0;
     let lineStart = 0;
-
     for (let i = 0; i < content.length; i++) {
-      if (content[i] === '\n') {
+      if (content[i] === "\n") {
         if (currentOffset >= offset) {
           const line = content.substring(lineStart, i);
           if (line.trim()) {
             try {
               events.push(JSON.parse(line));
-            } catch (e) {
+            } catch {
               // Skip malformed lines
             }
           }
@@ -595,47 +552,33 @@ class Storage {
         lineStart = currentOffset;
       }
     }
-
     return events;
   }
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // Data Management
-  // ───────────────────────────────────────────────────────────────────────────
 
   exportAll() {
     const cache = this.ensureFreshCache();
     const events = [];
-
     if (fs.existsSync(this.eventsFile)) {
-      const content = fs.readFileSync(this.eventsFile, 'utf8');
-      const lines = content.split('\n').filter((line) => line.trim());
+      const content = fs.readFileSync(this.eventsFile, "utf8");
+      const lines = content.split("\n").filter((line) => line.trim());
       for (const line of lines) {
         try {
           events.push(JSON.parse(line));
-        } catch (e) {
+        } catch {
           // Skip malformed lines
         }
       }
     }
-
-    return {
-      cache,
-      events,
-      exported_at: new Date().toISOString(),
-    };
+    return { cache, events, exported_at: new Date().toISOString() };
   }
 
   purge() {
-    // Delete all data files
     const files = [this.eventsFile, this.cacheFile, this.syncCursorFile];
     for (const file of files) {
       if (fs.existsSync(file)) {
         fs.unlinkSync(file);
       }
     }
-
-    // Reset in-memory cache
     this._cache = null;
   }
 
@@ -655,15 +598,13 @@ class Storage {
   getDataSize() {
     let size = 0;
     const files = [this.eventsFile, this.cacheFile, this.syncCursorFile];
-
     for (const file of files) {
       if (fs.existsSync(file)) {
         size += fs.statSync(file).size;
       }
     }
-
     return size;
   }
 }
 
-module.exports = { Storage };
+export { Storage };
