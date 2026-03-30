@@ -9,9 +9,16 @@
     "import": "node scripts/cli.js import",
     "export": "node scripts/cli.js export",
     "privacy": "node scripts/cli.js privacy",
-    "integrity": "node scripts/cli.js integrity"
+    "integrity": "node scripts/cli.js integrity",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {},
+  "devDependencies": {
+    "vitest": "^3.1.1",
+    "@vitest/coverage-v8": "^3.1.1"
+  },
   "keywords": ["claude", "claude-code", "plugin", "gamification", "ranking", "badges"],
   "author": "Sedhu <sedhuait@gmail.com>",
   "license": "MIT",

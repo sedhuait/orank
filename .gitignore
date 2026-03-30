@@ -5,6 +5,7 @@ Thumbs.db
 # Node
 node_modules/
 npm-debug.log*
+coverage/
 
 # Plugin runtime data (lives in ~/.claude/plugins/data/orank/)
 events.jsonl
@@ -23,3 +24,5 @@ sync-cursor.json
 *.swp
 *.swo
 *~
+docs/superpowers/
+.gstack/
