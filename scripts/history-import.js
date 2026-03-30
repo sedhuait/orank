@@ -4,9 +4,15 @@ import os from "node:os";
 
 import { Storage } from "./storage.js";
 
-const CLAUDE_DIR = path.join(os.homedir(), ".claude");
-const HISTORY_FILE = path.join(CLAUDE_DIR, "history.jsonl");
-const PROJECTS_DIR = path.join(CLAUDE_DIR, "projects");
+function getClaudeDir() {
+  return path.join(os.homedir(), ".claude");
+}
+function getHistoryFile() {
+  return path.join(getClaudeDir(), "history.jsonl");
+}
+function getProjectsDir() {
+  return path.join(getClaudeDir(), "projects");
+}
 
 class HistoryImporter {
   constructor(storage) {
@@ -37,12 +43,12 @@ class HistoryImporter {
   }
 
   _importFromGlobalHistory(sessions, sessionIds) {
-    if (!fs.existsSync(HISTORY_FILE)) {
+    if (!fs.existsSync(getHistoryFile())) {
       return;
     }
 
     try {
-      const content = fs.readFileSync(HISTORY_FILE, "utf-8");
+      const content = fs.readFileSync(getHistoryFile(), "utf-8");
       const lines = content.split("\n").filter((line) => line.trim());
 
       for (const line of lines) {
@@ -78,7 +84,7 @@ class HistoryImporter {
   }
 
   _importFromProjectSessions(sessions, sessionIds) {
-    if (!fs.existsSync(PROJECTS_DIR)) {
+    if (!fs.existsSync(getProjectsDir())) {
       return;
     }
 
@@ -125,7 +131,7 @@ class HistoryImporter {
                 }
               }
 
-              if (dir === PROJECTS_DIR) {
+              if (dir === getProjectsDir()) {
                 scanDir(fullPath);
               }
             }
@@ -135,7 +141,7 @@ class HistoryImporter {
         }
       };
 
-      scanDir(PROJECTS_DIR);
+      scanDir(getProjectsDir());
     } catch {
       // skip
     }

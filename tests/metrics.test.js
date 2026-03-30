@@ -1,6 +1,4 @@
-"use strict";
-
-const { computeMetrics, computeTrends, getWeekKey, getGrade, WEIGHTS } = require("../scripts/metrics");
+import { computeMetrics, computeTrends, getWeekKey, getGrade, WEIGHTS } from "../scripts/metrics.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -210,7 +208,6 @@ describe("computeMetrics", () => {
 
     test("grade matches composite", () => {
       const r = computeMetrics({ ...BASE, totalTools: 100, totalFailures: 50 });
-      const { getGrade } = require("../scripts/metrics");
       expect(r.grade).toBe(getGrade(r.composite));
     });
 

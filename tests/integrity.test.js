@@ -1,8 +1,14 @@
-"use strict";
-
-const fs = require("fs");
-const os = require("os");
-const path = require("path");
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import {
+  RATE_LIMITS,
+  ANOMALY_RULES,
+  loadAllEvents,
+  checkRateLimit,
+  runIntegrityReport,
+  formatIntegrityReport,
+} from "../scripts/integrity.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -27,49 +33,45 @@ function makeXpAwardEvents(total, day = "2026-01-15") {
   return [{ type: "xp_award", ts: `${day}T10:00:00.000Z`, sid: null, amount: total }];
 }
 
-// ── Module Cache Reset ────────────────────────────────────────────────────────
-
 let tmpDir;
 
 beforeEach(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "orank-integrity-"));
   process.env.CLAUDE_PLUGIN_DATA = tmpDir;
-  delete require.cache[require.resolve("../scripts/integrity")];
 });
 
 afterEach(() => {
   fs.rmSync(tmpDir, { recursive: true, force: true });
   delete process.env.CLAUDE_PLUGIN_DATA;
-  delete require.cache[require.resolve("../scripts/integrity")];
 });
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 describe("RATE_LIMITS", () => {
   test("tool_uses_per_minute is 60", () => {
-    const { RATE_LIMITS } = require("../scripts/integrity");
+
     expect(RATE_LIMITS.tool_uses_per_minute).toBe(60);
   });
 
   test("sessions_per_day is 50", () => {
-    const { RATE_LIMITS } = require("../scripts/integrity");
+
     expect(RATE_LIMITS.sessions_per_day).toBe(50);
   });
 
   test("xp_per_day is 5000", () => {
-    const { RATE_LIMITS } = require("../scripts/integrity");
+
     expect(RATE_LIMITS.xp_per_day).toBe(5000);
   });
 });
 
 describe("ANOMALY_RULES", () => {
   test("has 5 rules", () => {
-    const { ANOMALY_RULES } = require("../scripts/integrity");
+
     expect(ANOMALY_RULES).toHaveLength(5);
   });
 
   test("each rule has id, name, description, check function", () => {
-    const { ANOMALY_RULES } = require("../scripts/integrity");
+
     for (const rule of ANOMALY_RULES) {
       expect(typeof rule.id).toBe("string");
       expect(typeof rule.name).toBe("string");
@@ -79,7 +81,7 @@ describe("ANOMALY_RULES", () => {
   });
 
   test("rule IDs are correct", () => {
-    const { ANOMALY_RULES } = require("../scripts/integrity");
+
     const ids = ANOMALY_RULES.map((r) => r.id);
     expect(ids).toContain("impossible-speed");
     expect(ids).toContain("session-spam");
@@ -93,24 +95,24 @@ describe("ANOMALY_RULES", () => {
 
 describe("loadAllEvents", () => {
   test("returns [] when events.jsonl does not exist", () => {
-    const { loadAllEvents } = require("../scripts/integrity");
+
     expect(loadAllEvents()).toEqual([]);
   });
 
   test("returns [] when events.jsonl is empty", () => {
-    const { loadAllEvents } = require("../scripts/integrity");
+
     fs.writeFileSync(path.join(tmpDir, "events.jsonl"), "");
     expect(loadAllEvents()).toEqual([]);
   });
 
   test("returns [] when events.jsonl has only whitespace", () => {
-    const { loadAllEvents } = require("../scripts/integrity");
+
     fs.writeFileSync(path.join(tmpDir, "events.jsonl"), "   \n\n  ");
     expect(loadAllEvents()).toEqual([]);
   });
 
   test("parses valid JSONL", () => {
-    const { loadAllEvents } = require("../scripts/integrity");
+
     const events = [
       { type: "session_start", ts: "2026-01-15T10:00:00.000Z", sid: "s1" },
       { type: "tool_use", ts: "2026-01-15T10:01:00.000Z", sid: "s1", tool: "Read" },
@@ -124,7 +126,7 @@ describe("loadAllEvents", () => {
   });
 
   test("skips malformed lines and returns valid ones", () => {
-    const { loadAllEvents } = require("../scripts/integrity");
+
     const validEvent = { type: "session_start", ts: "2026-01-15T10:00:00.000Z", sid: "s1" };
     const lines = [
       JSON.stringify(validEvent),
@@ -139,7 +141,7 @@ describe("loadAllEvents", () => {
   });
 
   test("parses a single event", () => {
-    const { loadAllEvents } = require("../scripts/integrity");
+
     const event = { type: "turn_complete", ts: "2026-01-15T10:00:00.000Z", sid: "s1" };
     fs.writeFileSync(path.join(tmpDir, "events.jsonl"), JSON.stringify(event) + "\n");
     const result = loadAllEvents();
@@ -154,7 +156,7 @@ describe("impossible-speed rule", () => {
   let rule;
 
   beforeEach(() => {
-    const { ANOMALY_RULES } = require("../scripts/integrity");
+
     rule = ANOMALY_RULES.find((r) => r.id === "impossible-speed");
   });
 
@@ -209,7 +211,7 @@ describe("session-spam rule", () => {
   let rule;
 
   beforeEach(() => {
-    const { ANOMALY_RULES } = require("../scripts/integrity");
+
     rule = ANOMALY_RULES.find((r) => r.id === "session-spam");
   });
 
@@ -254,7 +256,7 @@ describe("xp-spike rule", () => {
   let rule;
 
   beforeEach(() => {
-    const { ANOMALY_RULES } = require("../scripts/integrity");
+
     rule = ANOMALY_RULES.find((r) => r.id === "xp-spike");
   });
 
@@ -319,7 +321,7 @@ describe("midnight-marathon rule", () => {
   let rule;
 
   beforeEach(() => {
-    const { ANOMALY_RULES } = require("../scripts/integrity");
+
     rule = ANOMALY_RULES.find((r) => r.id === "midnight-marathon");
   });
 
@@ -393,7 +395,7 @@ describe("monotone-tools rule", () => {
   let rule;
 
   beforeEach(() => {
-    const { ANOMALY_RULES } = require("../scripts/integrity");
+
     rule = ANOMALY_RULES.find((r) => r.id === "monotone-tools");
   });
 
@@ -493,14 +495,14 @@ describe("checkRateLimit", () => {
   }
 
   test("tool_use: allowed when under 60 per minute", () => {
-    const { checkRateLimit } = require("../scripts/integrity");
+
     const events = recentToolUseEvents(59);
     const result = checkRateLimit(events, "tool_use");
     expect(result.allowed).toBe(true);
   });
 
   test("tool_use: blocked when at 60 per minute", () => {
-    const { checkRateLimit } = require("../scripts/integrity");
+
     const events = recentToolUseEvents(60);
     const result = checkRateLimit(events, "tool_use");
     expect(result.allowed).toBe(false);
@@ -508,14 +510,14 @@ describe("checkRateLimit", () => {
   });
 
   test("tool_failure: blocked when tool_use count hits 60 per minute", () => {
-    const { checkRateLimit } = require("../scripts/integrity");
+
     const events = recentToolUseEvents(60);
     const result = checkRateLimit(events, "tool_failure");
     expect(result.allowed).toBe(false);
   });
 
   test("tool_use: allowed when all tool_use events are older than 60 seconds", () => {
-    const { checkRateLimit } = require("../scripts/integrity");
+
     const oldTs = new Date(Date.now() - 120000).toISOString();
     const events = Array.from({ length: 60 }, () => ({
       type: "tool_use",
@@ -528,14 +530,14 @@ describe("checkRateLimit", () => {
   });
 
   test("session_start: allowed when under 50 per day", () => {
-    const { checkRateLimit } = require("../scripts/integrity");
+
     const events = recentSessionStartEvents(49);
     const result = checkRateLimit(events, "session_start");
     expect(result.allowed).toBe(true);
   });
 
   test("session_start: blocked when at 50 per day", () => {
-    const { checkRateLimit } = require("../scripts/integrity");
+
     const events = recentSessionStartEvents(50);
     const result = checkRateLimit(events, "session_start");
     expect(result.allowed).toBe(false);
@@ -543,7 +545,7 @@ describe("checkRateLimit", () => {
   });
 
   test("other event types: always allowed regardless of event count", () => {
-    const { checkRateLimit } = require("../scripts/integrity");
+
     const events = Array.from({ length: 1000 }, (_, i) => ({
       type: "turn_complete",
       ts: new Date().toISOString(),
@@ -559,14 +561,14 @@ describe("checkRateLimit", () => {
 
 describe("runIntegrityReport", () => {
   test("trustScore is 100 when no flags", () => {
-    const { runIntegrityReport } = require("../scripts/integrity");
+
     const report = runIntegrityReport([]);
     expect(report.trustScore).toBe(100);
     expect(report.flags).toBe(0);
   });
 
   test("trustScore is 85 when 1 flag", () => {
-    const { runIntegrityReport } = require("../scripts/integrity");
+
     // Trigger impossible-speed: 61 tool_use in one minute
     const events = makeToolUseEvents(61);
     const report = runIntegrityReport(events);
@@ -575,7 +577,7 @@ describe("runIntegrityReport", () => {
   });
 
   test("trustScore is 0 when 7 or more flags (capped at 0)", () => {
-    const { runIntegrityReport } = require("../scripts/integrity");
+
     // We can't easily trigger all 5 real rules to get 7 flags, so test the math
     // by constructing a mock. Instead, verify capping behaviour is enforced:
     // With 5 flags: 100 - 5*15 = 25. With our 5 rules, max flags = 5 -> 25.
@@ -592,7 +594,7 @@ describe("runIntegrityReport", () => {
   });
 
   test("trustScore minimum is 0 (not negative) with many flags", () => {
-    const { runIntegrityReport, ANOMALY_RULES } = require("../scripts/integrity");
+
     // We can verify that 7 flags => Math.max(0, 100-105) = 0
     expect(Math.max(0, 100 - 7 * 15)).toBe(0);
     // And verify the function always returns >= 0
@@ -601,13 +603,13 @@ describe("runIntegrityReport", () => {
   });
 
   test("results has 5 entries (one per rule)", () => {
-    const { runIntegrityReport } = require("../scripts/integrity");
+
     const report = runIntegrityReport([]);
     expect(report.results).toHaveLength(5);
   });
 
   test("report includes totalEvents count", () => {
-    const { runIntegrityReport } = require("../scripts/integrity");
+
     const events = [
       { type: "session_start", ts: "2026-01-15T10:00:00.000Z", sid: "s1" },
       { type: "tool_use", ts: "2026-01-15T10:01:00.000Z", sid: "s1", tool: "Read" },
@@ -617,14 +619,14 @@ describe("runIntegrityReport", () => {
   });
 
   test("report includes checkedAt timestamp", () => {
-    const { runIntegrityReport } = require("../scripts/integrity");
+
     const report = runIntegrityReport([]);
     expect(typeof report.checkedAt).toBe("string");
     expect(() => new Date(report.checkedAt)).not.toThrow();
   });
 
   test("handles exception thrown in a rule (catches error, does not flag)", () => {
-    const { runIntegrityReport, ANOMALY_RULES } = require("../scripts/integrity");
+
     // Temporarily patch a rule to throw
     const original = ANOMALY_RULES[0].check;
     ANOMALY_RULES[0].check = () => { throw new Error("rule exploded"); };
@@ -643,24 +645,24 @@ describe("runIntegrityReport", () => {
 
 describe("formatIntegrityReport", () => {
   function getReport(events = []) {
-    const { runIntegrityReport } = require("../scripts/integrity");
+
     return runIntegrityReport(events);
   }
 
   test("returns a string", () => {
-    const { formatIntegrityReport } = require("../scripts/integrity");
+
     const report = getReport();
     expect(typeof formatIntegrityReport(report)).toBe("string");
   });
 
   test("contains 'Trust Score'", () => {
-    const { formatIntegrityReport } = require("../scripts/integrity");
+
     const report = getReport();
     expect(formatIntegrityReport(report)).toContain("Trust Score");
   });
 
   test("contains each rule name", () => {
-    const { formatIntegrityReport, ANOMALY_RULES } = require("../scripts/integrity");
+
     const report = getReport();
     const output = formatIntegrityReport(report);
     for (const rule of ANOMALY_RULES) {
@@ -669,13 +671,13 @@ describe("formatIntegrityReport", () => {
   });
 
   test("contains trust score value", () => {
-    const { formatIntegrityReport } = require("../scripts/integrity");
+
     const report = getReport();
     expect(formatIntegrityReport(report)).toContain("100");
   });
 
   test("shows [!] for flagged rule and evidence", () => {
-    const { formatIntegrityReport } = require("../scripts/integrity");
+
     const events = makeToolUseEvents(61);
     const report = getReport(events);
     const output = formatIntegrityReport(report);
@@ -684,7 +686,7 @@ describe("formatIntegrityReport", () => {
   });
 
   test("shows checkmark for clean rules", () => {
-    const { formatIntegrityReport } = require("../scripts/integrity");
+
     const report = getReport([]);
     const output = formatIntegrityReport(report);
     expect(output).toContain("[✓]");

@@ -1,9 +1,7 @@
-"use strict";
-
-const fs = require("fs");
-const path = require("path");
-const { createTestStorage, writeEvents, readEvents } = require("./helpers/test-storage");
-const {
+import fs from "node:fs";
+import path from "node:path";
+import { createTestStorage, writeEvents, readEvents } from "./helpers/test-storage.js";
+import {
   sessionStartEvent,
   sessionEndEvent,
   toolUseEvent,
@@ -17,7 +15,7 @@ const {
   badgeEarnedEvent,
   historyImportEvent,
   buildSession,
-} = require("./helpers/fixtures");
+} from "./helpers/fixtures.js";
 
 // ── Constructor & basics ──────────────────────────────────────────────────────
 
@@ -40,8 +38,8 @@ describe("Constructor & basics", () => {
     expect(storage.getDataDir()).toBe(tmpDir);
   });
 
-  test("data directory matches CLAUDE_PLUGIN_DATA env var", () => {
-    expect(storage.getDataDir()).toBe(process.env.CLAUDE_PLUGIN_DATA);
+  test("data directory matches the tmpDir passed to constructor", () => {
+    expect(storage.getDataDir()).toBe(tmpDir);
   });
 });
 

@@ -1,18 +1,16 @@
-"use strict";
-
-const {
+import {
+  generateDynamicBadges,
+  getNextBadges,
+  selectThresholds,
+  getCurrentTier,
+  getNextTierProgress,
   TIER_NAMES,
   TIER_LABELS,
   TIER_ICONS,
   THRESHOLD_COMMON,
   THRESHOLD_MODERATE,
   THRESHOLD_RARE,
-  selectThresholds,
-  getCurrentTier,
-  getNextTierProgress,
-  generateDynamicBadges,
-  getNextBadges,
-} = require("../scripts/dynamic-badges.js");
+} from "../scripts/dynamic-badges.js";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 

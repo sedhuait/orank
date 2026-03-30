@@ -1,6 +1,4 @@
-"use strict";
-
-const { detectPatterns, computeWorkflowScore, NAMED_PATTERNS } = require("../scripts/patterns");
+import { detectPatterns, computeWorkflowScore, NAMED_PATTERNS } from "../scripts/patterns.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 

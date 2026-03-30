@@ -10,11 +10,12 @@ import path from "node:path";
 import os from "node:os";
 
 // ── EVENTS_FILE from storage.js ─────────────────────────────────────────────
-const DATA_DIR =
-  process.env.CLAUDE_PLUGIN_DATA ||
-  path.join(os.homedir(), ".claude", "plugins", "data", "orank");
-
-const EVENTS_FILE = path.join(DATA_DIR, "events.jsonl");
+function getEventsFile() {
+  const dataDir =
+    process.env.CLAUDE_PLUGIN_DATA ||
+    path.join(os.homedir(), ".claude", "plugins", "data", "orank");
+  return path.join(dataDir, "events.jsonl");
+}
 
 // ── Rate Limits ─────────────────────────────────────────────────────────────
 
@@ -27,11 +28,12 @@ const RATE_LIMITS = {
 // ── Anomaly Detection Rules ─────────────────────────────────────────────────
 
 function loadAllEvents() {
-  if (!fs.existsSync(EVENTS_FILE)) {
+  const eventsFile = getEventsFile();
+  if (!fs.existsSync(eventsFile)) {
     return [];
   }
 
-  const content = fs.readFileSync(EVENTS_FILE, "utf-8");
+  const content = fs.readFileSync(eventsFile, "utf-8");
   if (!content.trim()) {
     return [];
   }

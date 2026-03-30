@@ -1,6 +1,4 @@
-"use strict";
-
-const { BadgeEngine, BADGE_DEFINITIONS, XP_RULES, TIERS, getTier } = require("../scripts/badges.js");
+import { BadgeEngine, BADGE_DEFINITIONS, XP_RULES, TIERS, getTier } from "../scripts/badges.js";
 
 // ── Mock Storage Factory ──────────────────────────────────────────────────────
 
