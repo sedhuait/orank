@@ -1,26 +1,28 @@
 import fs from "node:fs";
 import path from "node:path";
-import { createTestStorage, writeEvents, readEvents } from "./helpers/test-storage.js";
 import {
-  sessionStartEvent,
+  badgeEarnedEvent,
+  buildSession,
+  historyImportEvent,
   sessionEndEvent,
-  toolUseEvent,
-  toolFailureEvent,
-  turnCompleteEvent,
-  turnErrorEvent,
+  sessionStartEvent,
   slashCommandEvent,
   subagentStartEvent,
   subagentStopEvent,
+  toolFailureEvent,
+  toolUseEvent,
+  turnCompleteEvent,
+  turnErrorEvent,
   xpAwardEvent,
-  badgeEarnedEvent,
-  historyImportEvent,
-  buildSession,
 } from "./helpers/fixtures.js";
+import { createTestStorage, readEvents, writeEvents } from "./helpers/test-storage.js";
 
 // ── Constructor & basics ──────────────────────────────────────────────────────
 
 describe("Constructor & basics", () => {
-  let storage, tmpDir, cleanup;
+  let storage;
+  let tmpDir;
+  let cleanup;
 
   beforeEach(() => {
     ({ storage, tmpDir, cleanup } = createTestStorage());
@@ -46,7 +48,9 @@ describe("Constructor & basics", () => {
 // ── appendEvent ───────────────────────────────────────────────────────────────
 
 describe("appendEvent", () => {
-  let storage, tmpDir, cleanup;
+  let storage;
+  let tmpDir;
+  let cleanup;
 
   beforeEach(() => {
     ({ storage, tmpDir, cleanup } = createTestStorage());
@@ -101,7 +105,9 @@ describe("appendEvent", () => {
 // ── Pause/Resume ──────────────────────────────────────────────────────────────
 
 describe("Pause/Resume", () => {
-  let storage, tmpDir, cleanup;
+  let storage;
+  let tmpDir;
+  let cleanup;
 
   beforeEach(() => {
     ({ storage, tmpDir, cleanup } = createTestStorage());
@@ -140,7 +146,8 @@ describe("Pause/Resume", () => {
 // ── _emptyCache ───────────────────────────────────────────────────────────────
 
 describe("_emptyCache", () => {
-  let storage, cleanup;
+  let storage;
+  let cleanup;
 
   beforeEach(() => {
     ({ storage, cleanup } = createTestStorage());
@@ -153,14 +160,34 @@ describe("_emptyCache", () => {
   test("has all expected top-level keys", () => {
     const cache = storage._emptyCache();
     const expectedKeys = [
-      "total_xp", "tier", "total_sessions", "total_tools", "total_tool_failures",
-      "total_turns", "total_seconds", "total_turn_errors", "total_subagents",
-      "current_streak", "longest_streak", "last_active_date",
-      "tool_counts", "slash_command_counts", "subagent_counts", "turn_errors",
-      "daily_sessions", "hourly_activity", "badges_earned", "imported_session_ids",
-      "xp_log", "sessions", "tool_sequences", "weekly_snapshots",
-      "dynamic_badge_tracks", "last_weekly_summary_shown",
-      "events_offset", "last_rebuilt",
+      "total_xp",
+      "tier",
+      "total_sessions",
+      "total_tools",
+      "total_tool_failures",
+      "total_turns",
+      "total_seconds",
+      "total_turn_errors",
+      "total_subagents",
+      "current_streak",
+      "longest_streak",
+      "last_active_date",
+      "tool_counts",
+      "slash_command_counts",
+      "subagent_counts",
+      "turn_errors",
+      "daily_sessions",
+      "hourly_activity",
+      "badges_earned",
+      "imported_session_ids",
+      "xp_log",
+      "sessions",
+      "tool_sequences",
+      "weekly_snapshots",
+      "dynamic_badge_tracks",
+      "last_weekly_summary_shown",
+      "events_offset",
+      "last_rebuilt",
     ];
     for (const key of expectedKeys) {
       expect(cache).toHaveProperty(key);
@@ -182,9 +209,17 @@ describe("_emptyCache", () => {
   test("all numeric counters start at 0", () => {
     const cache = storage._emptyCache();
     const numericKeys = [
-      "total_xp", "total_sessions", "total_tools", "total_tool_failures",
-      "total_turns", "total_seconds", "total_turn_errors", "total_subagents",
-      "current_streak", "longest_streak", "events_offset",
+      "total_xp",
+      "total_sessions",
+      "total_tools",
+      "total_tool_failures",
+      "total_turns",
+      "total_seconds",
+      "total_turn_errors",
+      "total_subagents",
+      "current_streak",
+      "longest_streak",
+      "events_offset",
     ];
     for (const key of numericKeys) {
       expect(cache[key]).toBe(0);
@@ -223,7 +258,9 @@ describe("_emptyCache", () => {
 // ── Cache rebuild & event processing ─────────────────────────────────────────
 
 describe("Cache rebuild & event processing", () => {
-  let storage, tmpDir, cleanup;
+  let storage;
+  let tmpDir;
+  let cleanup;
 
   beforeEach(() => {
     ({ storage, tmpDir, cleanup } = createTestStorage());
@@ -267,10 +304,10 @@ describe("Cache rebuild & event processing", () => {
     const evt = sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" });
     writeEvents(tmpDir, [evt]);
     const cache = storage.rebuildCache();
-    expect(cache.sessions["s1"]).toBeDefined();
-    expect(cache.sessions["s1"].start_ts).toBe("2026-03-15T10:00:00Z");
-    expect(cache.sessions["s1"].tool_count).toBe(0);
-    expect(cache.sessions["s1"].failure_count).toBe(0);
+    expect(cache.sessions.s1).toBeDefined();
+    expect(cache.sessions.s1.start_ts).toBe("2026-03-15T10:00:00Z");
+    expect(cache.sessions.s1.tool_count).toBe(0);
+    expect(cache.sessions.s1.failure_count).toBe(0);
   });
 
   test("processes session_end: computes duration and adds to total_seconds", () => {
@@ -312,8 +349,8 @@ describe("Cache rebuild & event processing", () => {
     ];
     writeEvents(tmpDir, events);
     const cache = storage.rebuildCache();
-    expect(cache.tool_counts["Read"]).toBe(2);
-    expect(cache.tool_counts["Edit"]).toBe(1);
+    expect(cache.tool_counts.Read).toBe(2);
+    expect(cache.tool_counts.Edit).toBe(1);
   });
 
   test("processes tool_use: updates session tool_count", () => {
@@ -324,7 +361,7 @@ describe("Cache rebuild & event processing", () => {
     ];
     writeEvents(tmpDir, events);
     const cache = storage.rebuildCache();
-    expect(cache.sessions["s1"].tool_count).toBe(2);
+    expect(cache.sessions.s1.tool_count).toBe(2);
   });
 
   test("processes tool_use: creates dynamic_badge_tracks entry", () => {
@@ -356,7 +393,7 @@ describe("Cache rebuild & event processing", () => {
     writeEvents(tmpDir, events);
     const cache = storage.rebuildCache();
     expect(cache.total_tools).toBe(1);
-    expect(cache.tool_counts["Bash"]).toBe(1);
+    expect(cache.tool_counts.Bash).toBe(1);
   });
 
   test("processes tool_failure: increments session failure_count", () => {
@@ -366,7 +403,7 @@ describe("Cache rebuild & event processing", () => {
     ];
     writeEvents(tmpDir, events);
     const cache = storage.rebuildCache();
-    expect(cache.sessions["s1"].failure_count).toBe(1);
+    expect(cache.sessions.s1.failure_count).toBe(1);
   });
 
   test("processes turn_complete: increments total_turns", () => {
@@ -399,8 +436,8 @@ describe("Cache rebuild & event processing", () => {
     ];
     writeEvents(tmpDir, events);
     const cache = storage.rebuildCache();
-    expect(cache.turn_errors["timeout"]).toBe(2);
-    expect(cache.turn_errors["network"]).toBe(1);
+    expect(cache.turn_errors.timeout).toBe(2);
+    expect(cache.turn_errors.network).toBe(1);
   });
 
   test("processes slash_command: updates slash_command_counts", () => {
@@ -411,7 +448,7 @@ describe("Cache rebuild & event processing", () => {
     ];
     writeEvents(tmpDir, events);
     const cache = storage.rebuildCache();
-    expect(cache.slash_command_counts["orank"]).toBe(2);
+    expect(cache.slash_command_counts.orank).toBe(2);
   });
 
   test("processes slash_command: updates dynamic_badge_tracks", () => {
@@ -444,8 +481,8 @@ describe("Cache rebuild & event processing", () => {
     ];
     writeEvents(tmpDir, events);
     const cache = storage.rebuildCache();
-    expect(cache.subagent_counts["Explore"]).toBe(2);
-    expect(cache.subagent_counts["Task"]).toBe(1);
+    expect(cache.subagent_counts.Explore).toBe(2);
+    expect(cache.subagent_counts.Task).toBe(1);
   });
 
   test("processes xp_award: increments total_xp", () => {
@@ -473,9 +510,7 @@ describe("Cache rebuild & event processing", () => {
   });
 
   test("processes badge_earned: adds to badges_earned", () => {
-    const events = [
-      badgeEarnedEvent("first-session", "Hello Claude", "bronze", { ts: "2026-03-15T10:00:00Z" }),
-    ];
+    const events = [badgeEarnedEvent("first-session", "Hello Claude", "bronze", { ts: "2026-03-15T10:00:00Z" })];
     writeEvents(tmpDir, events);
     const cache = storage.rebuildCache();
     expect(cache.badges_earned).toHaveLength(1);
@@ -495,9 +530,7 @@ describe("Cache rebuild & event processing", () => {
   });
 
   test("processes history_import: adds to imported_session_ids", () => {
-    const events = [
-      historyImportEvent("imported-session-1", { ts: "2026-03-15T10:00:00Z" }),
-    ];
+    const events = [historyImportEvent("imported-session-1", { ts: "2026-03-15T10:00:00Z" })];
     writeEvents(tmpDir, events);
     const cache = storage.rebuildCache();
     expect(cache.imported_session_ids).toContain("imported-session-1");
@@ -525,7 +558,7 @@ describe("Cache rebuild & event processing", () => {
     // Now append more events directly and rebuild again
     const eventsFile = path.join(tmpDir, "events.jsonl");
     const newEvent = toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:02:00Z" });
-    fs.appendFileSync(eventsFile, JSON.stringify(newEvent) + "\n");
+    fs.appendFileSync(eventsFile, `${JSON.stringify(newEvent)}\n`);
 
     // Force cache to reload by clearing in-memory cache
     storage._cache = null;
@@ -533,8 +566,8 @@ describe("Cache rebuild & event processing", () => {
 
     // Should have processed all 3 events total
     expect(cache2.total_tools).toBe(2);
-    expect(cache2.tool_counts["Read"]).toBe(1);
-    expect(cache2.tool_counts["Edit"]).toBe(1);
+    expect(cache2.tool_counts.Read).toBe(1);
+    expect(cache2.tool_counts.Edit).toBe(1);
   });
 
   test("skips malformed JSON lines without throwing", () => {
@@ -543,13 +576,13 @@ describe("Cache rebuild & event processing", () => {
     // Write good event, then a malformed line, then another good event
     fs.writeFileSync(
       eventsFile,
-      JSON.stringify(goodEvent) + "\n" +
-      "NOT VALID JSON\n" +
-      JSON.stringify(toolUseEvent("s1", "Bash", { ts: "2026-03-15T10:01:00Z" })) + "\n",
-      "utf8"
+      `${JSON.stringify(goodEvent)}\nNOT VALID JSON\n${JSON.stringify(toolUseEvent("s1", "Bash", { ts: "2026-03-15T10:01:00Z" }))}\n`,
+      "utf8",
     );
     let cache;
-    expect(() => { cache = storage.rebuildCache(); }).not.toThrow();
+    expect(() => {
+      cache = storage.rebuildCache();
+    }).not.toThrow();
     expect(cache.total_sessions).toBe(1);
     expect(cache.total_tools).toBe(1);
   });
@@ -558,7 +591,9 @@ describe("Cache rebuild & event processing", () => {
 // ── Streaks ───────────────────────────────────────────────────────────────────
 
 describe("Streaks", () => {
-  let storage, tmpDir, cleanup;
+  let storage;
+  let tmpDir;
+  let cleanup;
 
   beforeEach(() => {
     ({ storage, tmpDir, cleanup } = createTestStorage());
@@ -578,9 +613,7 @@ describe("Streaks", () => {
   });
 
   test("single day → current_streak=1, longest_streak=1", () => {
-    writeEvents(tmpDir, [
-      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
-    ]);
+    writeEvents(tmpDir, [sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" })]);
     const cache = storage.rebuildCache();
     expect(cache.current_streak).toBe(1);
     expect(cache.longest_streak).toBe(1);
@@ -621,17 +654,13 @@ describe("Streaks", () => {
 
   test("no session today but session yesterday → current_streak=1", () => {
     // Today 2026-03-15, last session 2026-03-14
-    writeEvents(tmpDir, [
-      sessionStartEvent({ ts: "2026-03-14T10:00:00Z", sid: "s1" }),
-    ]);
+    writeEvents(tmpDir, [sessionStartEvent({ ts: "2026-03-14T10:00:00Z", sid: "s1" })]);
     const cache = storage.rebuildCache();
     expect(cache.current_streak).toBe(1);
   });
 
   test("last session was 2 days ago → current_streak=0", () => {
-    writeEvents(tmpDir, [
-      sessionStartEvent({ ts: "2026-03-13T10:00:00Z", sid: "s1" }),
-    ]);
+    writeEvents(tmpDir, [sessionStartEvent({ ts: "2026-03-13T10:00:00Z", sid: "s1" })]);
     const cache = storage.rebuildCache();
     expect(cache.current_streak).toBe(0);
   });
@@ -649,7 +678,9 @@ describe("Streaks", () => {
 // ── Public read methods ───────────────────────────────────────────────────────
 
 describe("Public read methods", () => {
-  let storage, tmpDir, cleanup;
+  let storage;
+  let tmpDir;
+  let cleanup;
 
   beforeEach(() => {
     ({ storage, tmpDir, cleanup } = createTestStorage());
@@ -663,11 +694,25 @@ describe("Public read methods", () => {
     test("returns all expected fields", () => {
       const stats = storage.getStats();
       const expectedKeys = [
-        "total_xp", "tier", "total_sessions", "total_tool_uses", "total_tool_failures",
-        "total_turns", "total_seconds", "total_turn_errors", "total_subagents",
-        "current_streak", "longest_streak", "last_active_date",
-        "success_rate", "unique_tools", "top_tools",
-        "slash_command_counts", "subagent_counts", "turn_errors", "tool_counts",
+        "total_xp",
+        "tier",
+        "total_sessions",
+        "total_tool_uses",
+        "total_tool_failures",
+        "total_turns",
+        "total_seconds",
+        "total_turn_errors",
+        "total_subagents",
+        "current_streak",
+        "longest_streak",
+        "last_active_date",
+        "success_rate",
+        "unique_tools",
+        "top_tools",
+        "slash_command_counts",
+        "subagent_counts",
+        "turn_errors",
+        "tool_counts",
       ];
       for (const key of expectedKeys) {
         expect(stats).toHaveProperty(key);
@@ -721,9 +766,7 @@ describe("Public read methods", () => {
   });
 
   test("getBadges returns earned array", () => {
-    writeEvents(tmpDir, [
-      badgeEarnedEvent("first-session", "Hello Claude", "bronze", { ts: "2026-03-15T10:00:00Z" }),
-    ]);
+    writeEvents(tmpDir, [badgeEarnedEvent("first-session", "Hello Claude", "bronze", { ts: "2026-03-15T10:00:00Z" })]);
     const badges = storage.getBadges();
     expect(badges).toHaveProperty("earned");
     expect(badges.earned).toHaveLength(1);
@@ -790,9 +833,7 @@ describe("Public read methods", () => {
   });
 
   test("getSessions returns sessions object", () => {
-    writeEvents(tmpDir, [
-      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
-    ]);
+    writeEvents(tmpDir, [sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" })]);
     const sessions = storage.getSessions();
     expect(sessions).toHaveProperty("s1");
   });
@@ -825,14 +866,16 @@ describe("Public read methods", () => {
       slashCommandEvent("s1", "orank", { ts: "2026-03-15T10:01:00Z" }),
     ]);
     const counts = storage.getSlashCommandCounts();
-    expect(counts["orank"]).toBe(1);
+    expect(counts.orank).toBe(1);
   });
 });
 
 // ── XP methods ────────────────────────────────────────────────────────────────
 
 describe("XP methods", () => {
-  let storage, tmpDir, cleanup;
+  let storage;
+  let tmpDir;
+  let cleanup;
 
   beforeEach(() => {
     ({ storage, tmpDir, cleanup } = createTestStorage());
@@ -867,9 +910,7 @@ describe("XP methods", () => {
   test("getTodayXP returns 0 when no XP awarded today", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-03-15T12:00:00Z"));
-    writeEvents(tmpDir, [
-      xpAwardEvent(100, "old", { ts: "2026-03-10T10:00:00Z" }),
-    ]);
+    writeEvents(tmpDir, [xpAwardEvent(100, "old", { ts: "2026-03-10T10:00:00Z" })]);
     expect(storage.getTodayXP()).toBe(0);
   });
 
@@ -888,7 +929,9 @@ describe("XP methods", () => {
 // ── Data management ───────────────────────────────────────────────────────────
 
 describe("Data management", () => {
-  let storage, tmpDir, cleanup;
+  let storage;
+  let tmpDir;
+  let cleanup;
 
   beforeEach(() => {
     ({ storage, tmpDir, cleanup } = createTestStorage());
@@ -909,9 +952,7 @@ describe("Data management", () => {
   });
 
   test("exportAll returns {cache, events, exported_at}", () => {
-    writeEvents(tmpDir, [
-      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
-    ]);
+    writeEvents(tmpDir, [sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" })]);
     const result = storage.exportAll();
     expect(result).toHaveProperty("cache");
     expect(result).toHaveProperty("events");
@@ -929,9 +970,7 @@ describe("Data management", () => {
   });
 
   test("purge deletes events.jsonl, cache.json, and sync-cursor.json", () => {
-    writeEvents(tmpDir, [
-      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
-    ]);
+    writeEvents(tmpDir, [sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" })]);
     storage.rebuildCache();
     storage.setSyncCursor(100);
 
@@ -951,9 +990,7 @@ describe("Data management", () => {
   });
 
   test("purge resets in-memory cache", () => {
-    writeEvents(tmpDir, [
-      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
-    ]);
+    writeEvents(tmpDir, [sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" })]);
     storage.rebuildCache();
     expect(storage._cache).not.toBeNull();
 
@@ -989,9 +1026,7 @@ describe("Data management", () => {
   });
 
   test("getDataSize returns sum of file sizes", () => {
-    writeEvents(tmpDir, [
-      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
-    ]);
+    writeEvents(tmpDir, [sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" })]);
     storage.rebuildCache();
     const size = storage.getDataSize();
     expect(size).toBeGreaterThan(0);
@@ -1022,9 +1057,7 @@ describe("Data management", () => {
   });
 
   test("getEventsSince returns only events after given offset", () => {
-    const evts = [
-      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
-    ];
+    const evts = [sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" })];
     writeEvents(tmpDir, evts);
 
     // Get the byte offset after the first event
@@ -1033,7 +1066,7 @@ describe("Data management", () => {
 
     // Append a second event
     const secondEvent = toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:01:00Z" });
-    fs.appendFileSync(eventsFile, JSON.stringify(secondEvent) + "\n");
+    fs.appendFileSync(eventsFile, `${JSON.stringify(secondEvent)}\n`);
 
     // Events since firstEventSize should only return the second event
     const events = storage.getEventsSince(firstEventSize);

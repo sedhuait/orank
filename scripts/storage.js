@@ -12,15 +12,13 @@
  */
 
 import fs from "node:fs";
-import path from "node:path";
 import os from "node:os";
+import path from "node:path";
 
 class Storage {
   constructor(dataDir) {
     this.dataDir =
-      dataDir ||
-      process.env.CLAUDE_PLUGIN_DATA ||
-      path.join(os.homedir(), ".claude", "plugins", "data", "orank");
+      dataDir || process.env.CLAUDE_PLUGIN_DATA || path.join(os.homedir(), ".claude", "plugins", "data", "orank");
     this.eventsFile = path.join(this.dataDir, "events.jsonl");
     this.cacheFile = path.join(this.dataDir, "cache.json");
     this.syncCursorFile = path.join(this.dataDir, "sync-cursor.json");
@@ -38,7 +36,7 @@ class Storage {
   }
 
   appendEvent(event) {
-    const line = JSON.stringify(event) + "\n";
+    const line = `${JSON.stringify(event)}\n`;
     fs.appendFileSync(this.eventsFile, line);
   }
 
@@ -121,7 +119,7 @@ class Storage {
   }
 
   rebuildCache() {
-    let cache = this._loadCache();
+    const cache = this._loadCache();
     const startOffset = cache.events_offset || 0;
 
     if (!fs.existsSync(this.eventsFile)) {
@@ -202,7 +200,7 @@ class Storage {
           cache.sessions[sid].tool_count += 1;
           cache.sessions[sid].tools_ordered.push({ tool, ts });
         }
-        const trackKey = "tool:" + tool;
+        const trackKey = `tool:${tool}`;
         if (!cache.dynamic_badge_tracks[trackKey]) {
           cache.dynamic_badge_tracks[trackKey] = { count: 0, earned_tiers: [] };
         }
@@ -220,7 +218,7 @@ class Storage {
           cache.sessions[sid].tool_count += 1;
           cache.sessions[sid].tools_ordered.push({ tool, ts });
         }
-        const trackKey = "tool:" + tool;
+        const trackKey = `tool:${tool}`;
         if (!cache.dynamic_badge_tracks[trackKey]) {
           cache.dynamic_badge_tracks[trackKey] = { count: 0, earned_tiers: [] };
         }
@@ -243,7 +241,7 @@ class Storage {
       case "slash_command": {
         const { command } = event;
         cache.slash_command_counts[command] = (cache.slash_command_counts[command] || 0) + 1;
-        const trackKey = "cmd:" + command;
+        const trackKey = `cmd:${command}`;
         if (!cache.dynamic_badge_tracks[trackKey]) {
           cache.dynamic_badge_tracks[trackKey] = { count: 0, earned_tiers: [] };
         }
@@ -498,9 +496,7 @@ class Storage {
   getTodayXP() {
     const cache = this.ensureFreshCache();
     const today = new Date().toISOString().split("T")[0];
-    return cache.xp_log
-      .filter((entry) => entry.ts && entry.ts.startsWith(today))
-      .reduce((sum, entry) => sum + entry.amount, 0);
+    return cache.xp_log.filter((entry) => entry.ts?.startsWith(today)).reduce((sum, entry) => sum + entry.amount, 0);
   }
 
   recordBadge(badgeId, badgeName, badgeTier) {

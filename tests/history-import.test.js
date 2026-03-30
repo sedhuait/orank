@@ -1,10 +1,11 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { createTestStorage, readEvents } from "./helpers/test-storage.js";
 import { HistoryImporter } from "../scripts/history-import.js";
+import { createTestStorage, readEvents } from "./helpers/test-storage.js";
 
-let tmpHome, storageCtx;
+let tmpHome;
+let storageCtx;
 
 beforeEach(() => {
   tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "orank-home-"));
@@ -22,7 +23,7 @@ afterEach(() => {
 
 function writeHistoryFile(lines) {
   const historyFile = path.join(tmpHome, ".claude", "history.jsonl");
-  fs.writeFileSync(historyFile, lines.map((l) => JSON.stringify(l)).join("\n") + "\n", "utf8");
+  fs.writeFileSync(historyFile, `${lines.map((l) => JSON.stringify(l)).join("\n")}\n`, "utf8");
 }
 
 function writeProjectIndex(projectName, data) {
@@ -35,14 +36,12 @@ function writeProjectIndex(projectName, data) {
 
 describe("_collectSessions — empty sources", () => {
   test("returns empty array when no history.jsonl and no projects", () => {
-
     const importer = new HistoryImporter(storageCtx.storage);
     const sessions = importer._collectSessions();
     expect(sessions).toEqual([]);
   });
 
   test("returns empty array when projects dir has no subdirectories", () => {
-
     const importer = new HistoryImporter(storageCtx.storage);
     const sessions = importer._collectSessions();
     expect(sessions).toHaveLength(0);
@@ -52,10 +51,21 @@ describe("_collectSessions — empty sources", () => {
 describe("_collectSessions — history.jsonl", () => {
   test("reads sessions from history.jsonl", () => {
     writeHistoryFile([
-      { sessionId: "sess-1", timestamp: "2026-01-10T10:00:00Z", projectPath: "/work/proj", numTurns: 5, toolCounts: { Read: 3 } },
-      { sessionId: "sess-2", timestamp: "2026-01-11T10:00:00Z", projectPath: "/work/proj2", numTurns: 2, toolCounts: {} },
+      {
+        sessionId: "sess-1",
+        timestamp: "2026-01-10T10:00:00Z",
+        projectPath: "/work/proj",
+        numTurns: 5,
+        toolCounts: { Read: 3 },
+      },
+      {
+        sessionId: "sess-2",
+        timestamp: "2026-01-11T10:00:00Z",
+        projectPath: "/work/proj2",
+        numTurns: 2,
+        toolCounts: {},
+      },
     ]);
-
 
     const importer = new HistoryImporter(storageCtx.storage);
     const sessions = importer._collectSessions();
@@ -66,10 +76,7 @@ describe("_collectSessions — history.jsonl", () => {
   });
 
   test("maps sessionId to id correctly", () => {
-    writeHistoryFile([
-      { sessionId: "abc-123", timestamp: "2026-01-10T10:00:00Z", numTurns: 1, toolCounts: {} },
-    ]);
-
+    writeHistoryFile([{ sessionId: "abc-123", timestamp: "2026-01-10T10:00:00Z", numTurns: 1, toolCounts: {} }]);
 
     const importer = new HistoryImporter(storageCtx.storage);
     const sessions = importer._collectSessions();
@@ -78,10 +85,7 @@ describe("_collectSessions — history.jsonl", () => {
   });
 
   test("supports field alias: id instead of sessionId", () => {
-    writeHistoryFile([
-      { id: "alias-id-1", timestamp: "2026-01-10T10:00:00Z", numTurns: 1, toolCounts: {} },
-    ]);
-
+    writeHistoryFile([{ id: "alias-id-1", timestamp: "2026-01-10T10:00:00Z", numTurns: 1, toolCounts: {} }]);
 
     const importer = new HistoryImporter(storageCtx.storage);
     const sessions = importer._collectSessions();
@@ -91,10 +95,7 @@ describe("_collectSessions — history.jsonl", () => {
   });
 
   test("supports timestamp alias: createdAt", () => {
-    writeHistoryFile([
-      { sessionId: "ts-1", createdAt: "2026-02-01T08:00:00Z", numTurns: 1, toolCounts: {} },
-    ]);
-
+    writeHistoryFile([{ sessionId: "ts-1", createdAt: "2026-02-01T08:00:00Z", numTurns: 1, toolCounts: {} }]);
 
     const importer = new HistoryImporter(storageCtx.storage);
     const sessions = importer._collectSessions();
@@ -103,10 +104,7 @@ describe("_collectSessions — history.jsonl", () => {
   });
 
   test("supports timestamp alias: created_at", () => {
-    writeHistoryFile([
-      { sessionId: "ts-2", created_at: "2026-03-01T08:00:00Z", numTurns: 1, toolCounts: {} },
-    ]);
-
+    writeHistoryFile([{ sessionId: "ts-2", created_at: "2026-03-01T08:00:00Z", numTurns: 1, toolCounts: {} }]);
 
     const importer = new HistoryImporter(storageCtx.storage);
     const sessions = importer._collectSessions();
@@ -115,10 +113,7 @@ describe("_collectSessions — history.jsonl", () => {
   });
 
   test("supports turns alias: turns", () => {
-    writeHistoryFile([
-      { sessionId: "turns-1", timestamp: "2026-01-10T10:00:00Z", turns: 7, toolCounts: {} },
-    ]);
-
+    writeHistoryFile([{ sessionId: "turns-1", timestamp: "2026-01-10T10:00:00Z", turns: 7, toolCounts: {} }]);
 
     const importer = new HistoryImporter(storageCtx.storage);
     const sessions = importer._collectSessions();
@@ -131,7 +126,6 @@ describe("_collectSessions — history.jsonl", () => {
       { sessionId: "cwd-1", timestamp: "2026-01-10T10:00:00Z", projectPath: "/some/path", numTurns: 0, toolCounts: {} },
     ]);
 
-
     const importer = new HistoryImporter(storageCtx.storage);
     const sessions = importer._collectSessions();
 
@@ -139,10 +133,7 @@ describe("_collectSessions — history.jsonl", () => {
   });
 
   test("sets branch to null for history.jsonl entries", () => {
-    writeHistoryFile([
-      { sessionId: "br-1", timestamp: "2026-01-10T10:00:00Z", numTurns: 0, toolCounts: {} },
-    ]);
-
+    writeHistoryFile([{ sessionId: "br-1", timestamp: "2026-01-10T10:00:00Z", numTurns: 0, toolCounts: {} }]);
 
     const importer = new HistoryImporter(storageCtx.storage);
     const sessions = importer._collectSessions();
@@ -152,13 +143,12 @@ describe("_collectSessions — history.jsonl", () => {
 
   test("skips malformed (non-JSON) lines in history.jsonl", () => {
     const historyFile = path.join(tmpHome, ".claude", "history.jsonl");
-    const content = [
+    const content = `${[
       JSON.stringify({ sessionId: "good-1", timestamp: "2026-01-10T10:00:00Z", numTurns: 0, toolCounts: {} }),
       "THIS IS NOT JSON {{{{",
       JSON.stringify({ sessionId: "good-2", timestamp: "2026-01-11T10:00:00Z", numTurns: 0, toolCounts: {} }),
-    ].join("\n") + "\n";
+    ].join("\n")}\n`;
     fs.writeFileSync(historyFile, content, "utf8");
-
 
     const importer = new HistoryImporter(storageCtx.storage);
     const sessions = importer._collectSessions();
@@ -168,10 +158,7 @@ describe("_collectSessions — history.jsonl", () => {
   });
 
   test("handles missing fields gracefully (null cwd, null branch)", () => {
-    writeHistoryFile([
-      { sessionId: "minimal-1", timestamp: "2026-01-10T10:00:00Z" },
-    ]);
-
+    writeHistoryFile([{ sessionId: "minimal-1", timestamp: "2026-01-10T10:00:00Z" }]);
 
     const importer = new HistoryImporter(storageCtx.storage);
     const sessions = importer._collectSessions();
@@ -188,7 +175,6 @@ describe("_collectSessions — history.jsonl", () => {
       { sessionId: "valid-1", timestamp: "2026-01-10T11:00:00Z", numTurns: 0, toolCounts: {} },
     ]);
 
-
     const importer = new HistoryImporter(storageCtx.storage);
     const sessions = importer._collectSessions();
 
@@ -202,7 +188,6 @@ describe("_collectSessions — projects/sessions-index.json (array format)", () 
     writeProjectIndex("my-project", [
       { sessionId: "proj-sess-1", startedAt: "2026-01-15T09:00:00Z", messageCount: 3, toolCounts: { Bash: 2 } },
     ]);
-
 
     const importer = new HistoryImporter(storageCtx.storage);
     const sessions = importer._collectSessions();
@@ -221,7 +206,6 @@ describe("_collectSessions — projects/sessions-index.json (array format)", () 
       ],
     });
 
-
     const importer = new HistoryImporter(storageCtx.storage);
     const sessions = importer._collectSessions();
 
@@ -235,7 +219,6 @@ describe("_collectSessions — projects/sessions-index.json (array format)", () 
       { id: "id-alias-sess", startedAt: "2026-01-15T09:00:00Z", messageCount: 1, toolCounts: {} },
     ]);
 
-
     const importer = new HistoryImporter(storageCtx.storage);
     const sessions = importer._collectSessions();
 
@@ -243,10 +226,7 @@ describe("_collectSessions — projects/sessions-index.json (array format)", () 
   });
 
   test("supports sessions-index turns alias: numTurns", () => {
-    writeProjectIndex("proj", [
-      { sessionId: "t1", startedAt: "2026-01-15T09:00:00Z", numTurns: 6, toolCounts: {} },
-    ]);
-
+    writeProjectIndex("proj", [{ sessionId: "t1", startedAt: "2026-01-15T09:00:00Z", numTurns: 6, toolCounts: {} }]);
 
     const importer = new HistoryImporter(storageCtx.storage);
     const sessions = importer._collectSessions();
@@ -255,10 +235,7 @@ describe("_collectSessions — projects/sessions-index.json (array format)", () 
   });
 
   test("supports sessions-index turns alias: numMessages", () => {
-    writeProjectIndex("proj", [
-      { sessionId: "t2", startedAt: "2026-01-15T09:00:00Z", numMessages: 8, toolCounts: {} },
-    ]);
-
+    writeProjectIndex("proj", [{ sessionId: "t2", startedAt: "2026-01-15T09:00:00Z", numMessages: 8, toolCounts: {} }]);
 
     const importer = new HistoryImporter(storageCtx.storage);
     const sessions = importer._collectSessions();
@@ -268,9 +245,14 @@ describe("_collectSessions — projects/sessions-index.json (array format)", () 
 
   test("captures gitBranch from sessions-index", () => {
     writeProjectIndex("proj", [
-      { sessionId: "br-sess", startedAt: "2026-01-15T09:00:00Z", gitBranch: "feature-x", messageCount: 1, toolCounts: {} },
+      {
+        sessionId: "br-sess",
+        startedAt: "2026-01-15T09:00:00Z",
+        gitBranch: "feature-x",
+        messageCount: 1,
+        toolCounts: {},
+      },
     ]);
-
 
     const importer = new HistoryImporter(storageCtx.storage);
     const sessions = importer._collectSessions();
@@ -281,14 +263,11 @@ describe("_collectSessions — projects/sessions-index.json (array format)", () 
 
 describe("_collectSessions — deduplication and ordering", () => {
   test("deduplicates sessions by sessionId across both sources", () => {
-    writeHistoryFile([
-      { sessionId: "dup-1", timestamp: "2026-01-10T10:00:00Z", numTurns: 1, toolCounts: {} },
-    ]);
+    writeHistoryFile([{ sessionId: "dup-1", timestamp: "2026-01-10T10:00:00Z", numTurns: 1, toolCounts: {} }]);
     writeProjectIndex("proj", [
       { sessionId: "dup-1", startedAt: "2026-01-10T10:00:00Z", messageCount: 1, toolCounts: {} },
       { sessionId: "unique-2", startedAt: "2026-01-11T10:00:00Z", messageCount: 2, toolCounts: {} },
     ]);
-
 
     const importer = new HistoryImporter(storageCtx.storage);
     const sessions = importer._collectSessions();
@@ -307,7 +286,6 @@ describe("_collectSessions — deduplication and ordering", () => {
       { sessionId: "mid-1", timestamp: "2026-01-10T10:00:00Z", numTurns: 0, toolCounts: {} },
     ]);
 
-
     const importer = new HistoryImporter(storageCtx.storage);
     const sessions = importer._collectSessions();
 
@@ -317,10 +295,7 @@ describe("_collectSessions — deduplication and ordering", () => {
   });
 
   test("caches collected sessions on second call", () => {
-    writeHistoryFile([
-      { sessionId: "cache-1", timestamp: "2026-01-10T10:00:00Z", numTurns: 0, toolCounts: {} },
-    ]);
-
+    writeHistoryFile([{ sessionId: "cache-1", timestamp: "2026-01-10T10:00:00Z", numTurns: 0, toolCounts: {} }]);
 
     const importer = new HistoryImporter(storageCtx.storage);
     const first = importer._collectSessions();
@@ -334,7 +309,6 @@ describe("_collectSessions — deduplication and ordering", () => {
 
 describe("preview()", () => {
   test("returns zeros when no history data", () => {
-
     const importer = new HistoryImporter(storageCtx.storage);
     const result = importer.preview();
 
@@ -347,7 +321,6 @@ describe("preview()", () => {
       { sessionId: "p2", timestamp: "2026-01-11T10:00:00Z", numTurns: 0, toolCounts: {} },
       { sessionId: "p3", timestamp: "2026-01-12T10:00:00Z", numTurns: 0, toolCounts: {} },
     ]);
-
 
     const importer = new HistoryImporter(storageCtx.storage);
     const result = importer.preview();
@@ -367,7 +340,6 @@ describe("preview()", () => {
     storageCtx.storage.markSessionImported("pre-imported");
     storageCtx.storage.ensureFreshCache();
 
-
     const importer = new HistoryImporter(storageCtx.storage);
     const result = importer.preview();
 
@@ -385,7 +357,6 @@ describe("preview()", () => {
     storageCtx.storage.markSessionImported("x1");
     storageCtx.storage.ensureFreshCache();
 
-
     const importer = new HistoryImporter(storageCtx.storage);
     const result = importer.preview();
 
@@ -397,10 +368,7 @@ describe("preview()", () => {
 
 describe("importAll() — basic import", () => {
   test("imports sessions and returns { imported, skipped }", () => {
-    writeHistoryFile([
-      { sessionId: "imp-1", timestamp: "2026-01-10T10:00:00Z", numTurns: 2, toolCounts: { Read: 1 } },
-    ]);
-
+    writeHistoryFile([{ sessionId: "imp-1", timestamp: "2026-01-10T10:00:00Z", numTurns: 2, toolCounts: { Read: 1 } }]);
 
     const importer = new HistoryImporter(storageCtx.storage);
     const result = importer.importAll();
@@ -420,7 +388,6 @@ describe("importAll() — basic import", () => {
     storageCtx.storage.markSessionImported("already-done");
     storageCtx.storage.ensureFreshCache();
 
-
     const importer = new HistoryImporter(storageCtx.storage);
     const result = importer.importAll();
 
@@ -429,10 +396,7 @@ describe("importAll() — basic import", () => {
   });
 
   test("writes session_start event for each imported session", () => {
-    writeHistoryFile([
-      { sessionId: "ev-start-1", timestamp: "2026-01-10T10:00:00Z", numTurns: 0, toolCounts: {} },
-    ]);
-
+    writeHistoryFile([{ sessionId: "ev-start-1", timestamp: "2026-01-10T10:00:00Z", numTurns: 0, toolCounts: {} }]);
 
     const importer = new HistoryImporter(storageCtx.storage);
     importer.importAll();
@@ -444,10 +408,7 @@ describe("importAll() — basic import", () => {
   });
 
   test("writes session_end event for each imported session", () => {
-    writeHistoryFile([
-      { sessionId: "ev-end-1", timestamp: "2026-01-10T10:00:00Z", numTurns: 0, toolCounts: {} },
-    ]);
-
+    writeHistoryFile([{ sessionId: "ev-end-1", timestamp: "2026-01-10T10:00:00Z", numTurns: 0, toolCounts: {} }]);
 
     const importer = new HistoryImporter(storageCtx.storage);
     importer.importAll();
@@ -468,7 +429,6 @@ describe("importAll() — basic import", () => {
       },
     ]);
 
-
     const importer = new HistoryImporter(storageCtx.storage);
     importer.importAll();
 
@@ -483,10 +443,7 @@ describe("importAll() — basic import", () => {
   });
 
   test("writes turn_complete events equal to turns count", () => {
-    writeHistoryFile([
-      { sessionId: "turns-sess", timestamp: "2026-01-10T10:00:00Z", numTurns: 4, toolCounts: {} },
-    ]);
-
+    writeHistoryFile([{ sessionId: "turns-sess", timestamp: "2026-01-10T10:00:00Z", numTurns: 4, toolCounts: {} }]);
 
     const importer = new HistoryImporter(storageCtx.storage);
     importer.importAll();
@@ -500,7 +457,6 @@ describe("importAll() — basic import", () => {
     writeHistoryFile([
       { sessionId: "schema-check", timestamp: "2026-01-10T10:00:00Z", numTurns: 1, toolCounts: { Read: 1 } },
     ]);
-
 
     const importer = new HistoryImporter(storageCtx.storage);
     importer.importAll();
@@ -517,10 +473,7 @@ describe("importAll() — basic import", () => {
   });
 
   test("marks each session as imported after processing", () => {
-    writeHistoryFile([
-      { sessionId: "mark-1", timestamp: "2026-01-10T10:00:00Z", numTurns: 0, toolCounts: {} },
-    ]);
-
+    writeHistoryFile([{ sessionId: "mark-1", timestamp: "2026-01-10T10:00:00Z", numTurns: 0, toolCounts: {} }]);
 
     const importer = new HistoryImporter(storageCtx.storage);
     importer.importAll();
@@ -535,7 +488,6 @@ describe("importAll() — basic import", () => {
       { sessionId: "xp-2", timestamp: "2026-01-11T10:00:00Z", numTurns: 0, toolCounts: {} },
     ]);
 
-
     const importer = new HistoryImporter(storageCtx.storage);
     importer.importAll();
 
@@ -546,10 +498,7 @@ describe("importAll() — basic import", () => {
   });
 
   test("handles sessions with zero tools and zero turns", () => {
-    writeHistoryFile([
-      { sessionId: "empty-sess", timestamp: "2026-01-10T10:00:00Z", numTurns: 0, toolCounts: {} },
-    ]);
-
+    writeHistoryFile([{ sessionId: "empty-sess", timestamp: "2026-01-10T10:00:00Z", numTurns: 0, toolCounts: {} }]);
 
     const importer = new HistoryImporter(storageCtx.storage);
     const result = importer.importAll();
@@ -568,10 +517,7 @@ describe("importAll() — basic import", () => {
 
   test("handles sessions with missing startTime (uses fallback)", () => {
     // No timestamp field — should not throw
-    writeHistoryFile([
-      { sessionId: "no-time", numTurns: 1, toolCounts: {} },
-    ]);
-
+    writeHistoryFile([{ sessionId: "no-time", numTurns: 1, toolCounts: {} }]);
 
     const importer = new HistoryImporter(storageCtx.storage);
 
@@ -583,10 +529,7 @@ describe("importAll() — basic import", () => {
   });
 
   test("second importAll on same importer instance returns 0 imported (already done)", () => {
-    writeHistoryFile([
-      { sessionId: "double-import", timestamp: "2026-01-10T10:00:00Z", numTurns: 0, toolCounts: {} },
-    ]);
-
+    writeHistoryFile([{ sessionId: "double-import", timestamp: "2026-01-10T10:00:00Z", numTurns: 0, toolCounts: {} }]);
 
     const importer = new HistoryImporter(storageCtx.storage);
     importer.importAll();
@@ -609,7 +552,6 @@ describe("importAll() — mixed sources", () => {
     writeProjectIndex("proj", [
       { sessionId: "proj-sess", startedAt: "2026-01-12T10:00:00Z", messageCount: 2, toolCounts: { Bash: 1 } },
     ]);
-
 
     const importer = new HistoryImporter(storageCtx.storage);
     const result = importer.importAll();

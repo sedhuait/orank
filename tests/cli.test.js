@@ -34,13 +34,21 @@ function runCliSafe(command = "stats", extraArgs = []) {
 
 function writeEventsFile(events) {
   const eventsFile = path.join(tmpDir, "events.jsonl");
-  fs.writeFileSync(eventsFile, events.map((e) => JSON.stringify(e)).join("\n") + "\n");
+  fs.writeFileSync(eventsFile, `${events.map((e) => JSON.stringify(e)).join("\n")}\n`);
 }
 
 function seedData() {
   const now = new Date().toISOString();
   const events = [
-    { type: "session_start", ts: now, sid: "cli-test-1", model: "opus", source: "startup", cwd: "/tmp", branch: "main" },
+    {
+      type: "session_start",
+      ts: now,
+      sid: "cli-test-1",
+      model: "opus",
+      source: "startup",
+      cwd: "/tmp",
+      branch: "main",
+    },
     { type: "tool_use", ts: now, sid: "cli-test-1", tool: "Read", file_path: "/tmp/a.js" },
     { type: "tool_use", ts: now, sid: "cli-test-1", tool: "Edit", file_path: "/tmp/a.js" },
     { type: "tool_use", ts: now, sid: "cli-test-1", tool: "Bash", file_path: null },

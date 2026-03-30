@@ -1,4 +1,4 @@
-import { BadgeEngine, BADGE_DEFINITIONS, XP_RULES, TIERS, getTier } from "../scripts/badges.js";
+import { BADGE_DEFINITIONS, BadgeEngine, TIERS, XP_RULES, getTier } from "../scripts/badges.js";
 
 // ── Mock Storage Factory ──────────────────────────────────────────────────────
 
@@ -771,15 +771,25 @@ describe("BadgeEngine.evaluate() with dynamic badges and weekly snapshots", () =
     });
     storage.getBadges = () => ({
       earned: [
-        { badge_id: "dynamic:tool:Edit:bronze", badge_name: "Edit Novice", badge_tier: "bronze", earned_at: "2026-03-01T00:00:00Z" },
-        { badge_id: "dynamic:tool:Edit:silver", badge_name: "Edit Adept", badge_tier: "silver", earned_at: "2026-03-01T00:00:00Z" },
+        {
+          badge_id: "dynamic:tool:Edit:bronze",
+          badge_name: "Edit Novice",
+          badge_tier: "bronze",
+          earned_at: "2026-03-01T00:00:00Z",
+        },
+        {
+          badge_id: "dynamic:tool:Edit:silver",
+          badge_name: "Edit Adept",
+          badge_tier: "silver",
+          earned_at: "2026-03-01T00:00:00Z",
+        },
       ],
     });
     const engine = new BadgeEngine(storage);
     const newlyEarned = engine.evaluate();
     // Should NOT re-award bronze or silver
     const reAwarded = newlyEarned.filter(
-      (b) => b.id === "dynamic:tool:Edit:bronze" || b.id === "dynamic:tool:Edit:silver"
+      (b) => b.id === "dynamic:tool:Edit:bronze" || b.id === "dynamic:tool:Edit:silver",
     );
     expect(reAwarded).toHaveLength(0);
   });
@@ -817,7 +827,12 @@ describe("BadgeEngine.getSummary() with dynamic badges and weekly snapshots", ()
     });
     storage.getBadges = () => ({
       earned: [
-        { badge_id: "dynamic:tool:Edit:bronze", badge_name: "Edit Novice", badge_tier: "bronze", earned_at: "2026-03-01T00:00:00Z" },
+        {
+          badge_id: "dynamic:tool:Edit:bronze",
+          badge_name: "Edit Novice",
+          badge_tier: "bronze",
+          earned_at: "2026-03-01T00:00:00Z",
+        },
       ],
     });
     const engine = new BadgeEngine(storage);
@@ -861,8 +876,8 @@ describe("BadgeEngine.getSummary() with dynamic badges and weekly snapshots", ()
     const engine = new BadgeEngine(storage);
     const summary = engine.getSummary();
     // trend-setter requires 4 improving weeks - should be in progress with progress
-    const trendSetter = summary.inProgress.find((b) => b.id === "trend-setter") ||
-      summary.earned.find((b) => b.id === "trend-setter");
+    const trendSetter =
+      summary.inProgress.find((b) => b.id === "trend-setter") || summary.earned.find((b) => b.id === "trend-setter");
     expect(trendSetter).toBeDefined();
   });
 });

@@ -68,17 +68,24 @@ function computeRetryRate(sessions) {
 
 const WEIGHTS = {
   success_rate: 0.25,
-  throughput: 0.20,
+  throughput: 0.2,
   breadth: 0.15,
-  retry_rate: 0.20,
-  workflow_score: 0.20,
+  retry_rate: 0.2,
+  workflow_score: 0.2,
 };
 
 function normalizeThroughput(rawThroughput) {
   return Math.min(100, (rawThroughput / 10) * 100);
 }
 
-function computeMetrics({ totalTools, totalFailures, totalSeconds, uniqueToolsInWindow, totalDistinctToolsEver, sessions }) {
+function computeMetrics({
+  totalTools,
+  totalFailures,
+  totalSeconds,
+  uniqueToolsInWindow,
+  totalDistinctToolsEver,
+  sessions,
+}) {
   const success_rate = computeSuccessRate(totalTools, totalFailures);
   const rawThroughput = computeThroughput(totalTools, totalSeconds);
   const throughput = normalizeThroughput(rawThroughput);

@@ -1,7 +1,7 @@
 let counter = 0;
 
 function uniqueId() {
-  return "test-" + (++counter).toString(36) + "-" + Math.random().toString(36).slice(2, 6);
+  return `test-${(++counter).toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
 function sessionStartEvent(overrides = {}) {

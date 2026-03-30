@@ -7,8 +7,8 @@
  * Must be fast — runs on every hook event.
  */
 
-import fs from "node:fs";
 import { execSync } from "node:child_process";
+import fs from "node:fs";
 import { Storage } from "./storage.js";
 
 // ── Helpers ────────────────────���─────────────────────────────────────────────

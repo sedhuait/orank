@@ -1,15 +1,15 @@
 import {
-  generateDynamicBadges,
-  getNextBadges,
-  selectThresholds,
-  getCurrentTier,
-  getNextTierProgress,
-  TIER_NAMES,
-  TIER_LABELS,
-  TIER_ICONS,
   THRESHOLD_COMMON,
   THRESHOLD_MODERATE,
   THRESHOLD_RARE,
+  TIER_ICONS,
+  TIER_LABELS,
+  TIER_NAMES,
+  generateDynamicBadges,
+  getCurrentTier,
+  getNextBadges,
+  getNextTierProgress,
+  selectThresholds,
 } from "../scripts/dynamic-badges.js";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -407,43 +407,29 @@ describe("getNextBadges", () => {
   }
 
   test("returns empty array when all badges are earned", () => {
-    const badges = [
-      makeBadge("a", true, 100),
-      makeBadge("b", true, 100),
-    ];
+    const badges = [makeBadge("a", true, 100), makeBadge("b", true, 100)];
     expect(getNextBadges(badges)).toEqual([]);
   });
 
   test("returns empty array when all unearned badges have progress=0", () => {
-    const badges = [
-      makeBadge("a", false, 0),
-      makeBadge("b", false, 0),
-    ];
+    const badges = [makeBadge("a", false, 0), makeBadge("b", false, 0)];
     expect(getNextBadges(badges)).toEqual([]);
   });
 
   test("returns up to n badges (default 5)", () => {
-    const badges = Array.from({ length: 10 }, (_, i) =>
-      makeBadge(`badge-${i}`, false, i + 1)
-    );
+    const badges = Array.from({ length: 10 }, (_, i) => makeBadge(`badge-${i}`, false, i + 1));
     const result = getNextBadges(badges);
     expect(result).toHaveLength(5);
   });
 
   test("respects custom n parameter", () => {
-    const badges = Array.from({ length: 10 }, (_, i) =>
-      makeBadge(`badge-${i}`, false, i + 1)
-    );
+    const badges = Array.from({ length: 10 }, (_, i) => makeBadge(`badge-${i}`, false, i + 1));
     expect(getNextBadges(badges, 3)).toHaveLength(3);
     expect(getNextBadges(badges, 1)).toHaveLength(1);
   });
 
   test("sorts by progress descending", () => {
-    const badges = [
-      makeBadge("low", false, 20),
-      makeBadge("high", false, 80),
-      makeBadge("mid", false, 50),
-    ];
+    const badges = [makeBadge("low", false, 20), makeBadge("high", false, 80), makeBadge("mid", false, 50)];
     const result = getNextBadges(badges, 3);
     expect(result[0].id).toBe("high");
     expect(result[1].id).toBe("mid");
@@ -451,31 +437,21 @@ describe("getNextBadges", () => {
   });
 
   test("filters out earned badges", () => {
-    const badges = [
-      makeBadge("earned", true, 100),
-      makeBadge("unearned", false, 75),
-    ];
+    const badges = [makeBadge("earned", true, 100), makeBadge("unearned", false, 75)];
     const result = getNextBadges(badges);
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe("unearned");
   });
 
   test("filters out badges with progress=0", () => {
-    const badges = [
-      makeBadge("zero", false, 0),
-      makeBadge("some", false, 30),
-    ];
+    const badges = [makeBadge("zero", false, 0), makeBadge("some", false, 30)];
     const result = getNextBadges(badges);
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe("some");
   });
 
   test("returns fewer than n when not enough eligible badges", () => {
-    const badges = [
-      makeBadge("a", false, 40),
-      makeBadge("b", true, 100),
-      makeBadge("c", false, 0),
-    ];
+    const badges = [makeBadge("a", false, 40), makeBadge("b", true, 100), makeBadge("c", false, 0)];
     const result = getNextBadges(badges, 5);
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe("a");

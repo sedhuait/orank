@@ -6,14 +6,12 @@
  */
 
 import fs from "node:fs";
-import path from "node:path";
 import os from "node:os";
+import path from "node:path";
 
 // ── EVENTS_FILE from storage.js ─────────────────────────────────────────────
 function getEventsFile() {
-  const dataDir =
-    process.env.CLAUDE_PLUGIN_DATA ||
-    path.join(os.homedir(), ".claude", "plugins", "data", "orank");
+  const dataDir = process.env.CLAUDE_PLUGIN_DATA || path.join(os.homedir(), ".claude", "plugins", "data", "orank");
   return path.join(dataDir, "events.jsonl");
 }
 
@@ -297,7 +295,7 @@ function formatIntegrityReport(report) {
     lines.push("");
   }
 
-  lines.push("  Checked at: " + report.checkedAt);
+  lines.push(`  Checked at: ${report.checkedAt}`);
   lines.push("");
 
   return lines.join("\n");

@@ -1,6 +1,6 @@
 import fs from "node:fs";
-import path from "node:path";
 import os from "node:os";
+import path from "node:path";
 
 import { Storage } from "./storage.js";
 
@@ -221,7 +221,7 @@ class HistoryImporter {
         });
 
         this.storage.markSessionImported(session.id);
-        this.storage.addXP(50, "History import: session " + session.id);
+        this.storage.addXP(50, `History import: session ${session.id}`);
 
         this.imported += 1;
       } catch {

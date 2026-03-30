@@ -1,4 +1,4 @@
-import { detectPatterns, computeWorkflowScore, NAMED_PATTERNS } from "../scripts/patterns.js";
+import { NAMED_PATTERNS, computeWorkflowScore, detectPatterns } from "../scripts/patterns.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 

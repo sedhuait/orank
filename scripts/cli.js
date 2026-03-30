@@ -17,13 +17,13 @@
  *   integrity   — Run anomaly check
  */
 
-import { Storage } from "./storage.js";
-import { BadgeEngine, getTier, TIERS } from "./badges.js";
+import { BadgeEngine, TIERS, getTier } from "./badges.js";
+import { TIER_NAMES, getCurrentTier, selectThresholds } from "./dynamic-badges.js";
 import { HistoryImporter } from "./history-import.js";
-import { runIntegrityReport, formatIntegrityReport, loadAllEvents } from "./integrity.js";
+import { formatIntegrityReport, loadAllEvents, runIntegrityReport } from "./integrity.js";
 import { computeMetrics, computeTrends, getWeekKey } from "./metrics.js";
 import { detectPatterns } from "./patterns.js";
-import { getCurrentTier, TIER_NAMES, selectThresholds } from "./dynamic-badges.js";
+import { Storage } from "./storage.js";
 
 // ── Formatting Helpers ─────────��────────────────────────────────────────────
 
@@ -131,7 +131,9 @@ function cmdStats(storage) {
     `  ${tier.icon}  ${tier.name}    ${fmt(stats.total_xp)} XP    Today: +${fmt(todayXP)} XP    Efficiency: ${metrics.grade} (${metrics.composite}) ${trends.composite.arrow}`,
   );
   if (tier.nextTier) {
-    lines.push(`  \u2192 ${tier.nextTier}: ${bar(parseFloat(tier.progress))}  (${fmt(tier.nextTierXP - stats.total_xp)} to go)`);
+    lines.push(
+      `  \u2192 ${tier.nextTier}: ${bar(Number.parseFloat(tier.progress))}  (${fmt(tier.nextTierXP - stats.total_xp)} to go)`,
+    );
   } else {
     lines.push("  Maximum tier reached!");
   }
@@ -141,13 +143,13 @@ function cmdStats(storage) {
     "  \u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510",
   );
   lines.push(
-    `  \u2502  Sessions: ${String(stats.total_sessions).padEnd(8)} Tools: ${String(fmt(stats.total_tool_uses)).padEnd(10)} Success: ${trendStr(stats.success_rate + "%", trends.success_rate)}`,
+    `  \u2502  Sessions: ${String(stats.total_sessions).padEnd(8)} Tools: ${String(fmt(stats.total_tool_uses)).padEnd(10)} Success: ${trendStr(`${stats.success_rate}%`, trends.success_rate)}`,
   );
   lines.push(
     `  \u2502  Turns:    ${String(fmt(stats.total_turns)).padEnd(8)} Time:  ${String(formatDuration(stats.total_seconds)).padEnd(10)} Breadth: ${stats.unique_tools}/${Object.keys(stats.tool_counts).length}`,
   );
   lines.push(
-    `  \u2502  Streak:   ${String(stats.current_streak + "d").padEnd(8)} Best:  ${String(stats.longest_streak + "d").padEnd(10)} Retries: ${trendStr(metrics.retry_rate + "%", trends.retry_rate)}`,
+    `  \u2502  Streak:   ${String(`${stats.current_streak}d`).padEnd(8)} Best:  ${String(`${stats.longest_streak}d`).padEnd(10)} Retries: ${trendStr(`${metrics.retry_rate}%`, trends.retry_rate)}`,
   );
   lines.push(
     "  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518",
@@ -158,7 +160,7 @@ function cmdStats(storage) {
     lines.push("  Top Tools:");
     for (const tool of stats.top_tools.slice(0, 6)) {
       const pct = stats.total_tool_uses > 0 ? ((tool.count / stats.total_tool_uses) * 100).toFixed(0) : 0;
-      const stars = starRating("tool:" + tool.name, dynamicTracks);
+      const stars = starRating(`tool:${tool.name}`, dynamicTracks);
       lines.push(`     ${tool.name.padEnd(16)} ${String(tool.count).padStart(6)} (${pct}%)  ${stars}`);
     }
     lines.push("");
@@ -172,7 +174,9 @@ function cmdStats(storage) {
     lines.push("");
   }
 
-  lines.push(`  Badges: ${badges.earned.length}/${badges.total} earned    Pending: ${badges.total - badges.earned.length}`);
+  lines.push(
+    `  Badges: ${badges.earned.length}/${badges.total} earned    Pending: ${badges.total - badges.earned.length}`,
+  );
   if (newBadges.length > 0) {
     lines.push("");
     lines.push("  NEW BADGES:");
@@ -293,7 +297,12 @@ function cmdInsights(storage) {
   const cmds = Object.entries(cmdCounts).sort((a, b) => b[1] - a[1]);
   if (cmds.length > 0) {
     lines.push("  Slash commands this week:");
-    lines.push("     " + cmds.slice(0, 6).map(([cmd, count]) => `/${cmd} (${count}x)`).join("  "));
+    lines.push(
+      `     ${cmds
+        .slice(0, 6)
+        .map(([cmd, count]) => `/${cmd} (${count}x)`)
+        .join("  ")}`,
+    );
     lines.push("");
   }
 

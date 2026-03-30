@@ -22,7 +22,7 @@ function createTestStorage() {
 
 function writeEvents(tmpDir, events) {
   const eventsFile = path.join(tmpDir, "events.jsonl");
-  const content = events.map((e) => JSON.stringify(e)).join("\n") + "\n";
+  const content = `${events.map((e) => JSON.stringify(e)).join("\n")}\n`;
   fs.writeFileSync(eventsFile, content, "utf8");
 }
 

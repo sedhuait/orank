@@ -2,7 +2,7 @@
 
 **Gamification, badges, and ranking for Claude Code users.**
 
-orank automatically tracks your Claude Code usage and turns it into XP, badges, streaks, and a shareable developer profile. Think WakaTime meets GitHub Achievements for the Claude ecosystem.
+orank automatically tracks your Claude Code usage and turns it into XP, badges, streaks, and a shareable developer profile. Think Duolingo meets GitHub Achievements for the Claude ecosystem.
 
 ## Install
 
@@ -27,24 +27,27 @@ That's it. orank starts tracking automatically via Claude Code hooks.
 orank captures data automatically — zero configuration:
 
 | Data Point | How | Privacy |
-|------------|-----|---------|
+| --- | --- | --- |
 | Session start/end | SessionStart/End hooks | Local only |
 | Tool usage | PostToolUse hook | Local only |
 | Tool failures | PostToolUseFailure hook | Local only |
 | Conversation turns | Stop hook | Local only |
-| Historical sessions | ~/.claude/history.jsonl | Read-only |
+| Historical sessions | \~/.claude/history.jsonl | Read-only |
 
 All data is stored locally in JSONL. Nothing leaves your machine unless you enable sync.
 
 ## Gamification
 
 ### Tiers
+
 🥉 Bronze → 🥈 Silver (2K XP) → 🥇 Gold (5K XP) → 🏆 Platinum (10K XP) → 💎 Diamond (20K XP)
 
 ### Badges
+
 25+ badges across categories: Usage Milestones, Tool Mastery, Streaks, Efficiency, Time Invested, and XP Milestones.
 
 ### XP
+
 Earn XP from daily sessions (+50), tool milestones (+200), streaks (+500-5000), and badge unlocks (+100-2500).
 
 ## Architecture

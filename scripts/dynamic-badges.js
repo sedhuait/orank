@@ -59,7 +59,7 @@ function generateDynamicBadges(dynamicBadgeTracks, totalToolCount, totalCommandC
   for (const [trackKey, track] of Object.entries(dynamicBadgeTracks)) {
     const isCommand = trackKey.startsWith("cmd:");
     const rawName = trackKey.split(":")[1];
-    const displayName = isCommand ? "/" + rawName : rawName;
+    const displayName = isCommand ? `/${rawName}` : rawName;
     const totalCount = isCommand ? totalCommandCount : totalToolCount;
     const thresholds = selectThresholds(track.count, totalCount);
 

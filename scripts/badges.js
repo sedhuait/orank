@@ -20,7 +20,10 @@ const BADGE_DEFINITIONS = [
     description: "Complete your first Claude Code session",
     icon: "👋",
     tier: "bronze",
-    check: (stats) => ({ earned: stats.total_sessions >= 1, progress: Math.min(100, (stats.total_sessions / 1) * 100) }),
+    check: (stats) => ({
+      earned: stats.total_sessions >= 1,
+      progress: Math.min(100, (stats.total_sessions / 1) * 100),
+    }),
   },
   {
     id: "sessions-10",
@@ -28,7 +31,10 @@ const BADGE_DEFINITIONS = [
     description: "Complete 10 Claude Code sessions",
     icon: "🌱",
     tier: "bronze",
-    check: (stats) => ({ earned: stats.total_sessions >= 10, progress: Math.min(100, (stats.total_sessions / 10) * 100) }),
+    check: (stats) => ({
+      earned: stats.total_sessions >= 10,
+      progress: Math.min(100, (stats.total_sessions / 10) * 100),
+    }),
   },
   {
     id: "sessions-100",
@@ -36,7 +42,10 @@ const BADGE_DEFINITIONS = [
     description: "Complete 100 Claude Code sessions",
     icon: "⚡",
     tier: "silver",
-    check: (stats) => ({ earned: stats.total_sessions >= 100, progress: Math.min(100, (stats.total_sessions / 100) * 100) }),
+    check: (stats) => ({
+      earned: stats.total_sessions >= 100,
+      progress: Math.min(100, (stats.total_sessions / 100) * 100),
+    }),
   },
   {
     id: "sessions-500",
@@ -44,7 +53,10 @@ const BADGE_DEFINITIONS = [
     description: "Complete 500 Claude Code sessions",
     icon: "🎖️",
     tier: "gold",
-    check: (stats) => ({ earned: stats.total_sessions >= 500, progress: Math.min(100, (stats.total_sessions / 500) * 100) }),
+    check: (stats) => ({
+      earned: stats.total_sessions >= 500,
+      progress: Math.min(100, (stats.total_sessions / 500) * 100),
+    }),
   },
   {
     id: "sessions-1000",
@@ -52,7 +64,10 @@ const BADGE_DEFINITIONS = [
     description: "Complete 1,000 Claude Code sessions",
     icon: "👑",
     tier: "platinum",
-    check: (stats) => ({ earned: stats.total_sessions >= 1000, progress: Math.min(100, (stats.total_sessions / 1000) * 100) }),
+    check: (stats) => ({
+      earned: stats.total_sessions >= 1000,
+      progress: Math.min(100, (stats.total_sessions / 1000) * 100),
+    }),
   },
 
   // ── Tool Mastery ────────────────────────────────────────────────────────
@@ -62,7 +77,10 @@ const BADGE_DEFINITIONS = [
     description: "Use 100 tools across all sessions",
     icon: "🔧",
     tier: "bronze",
-    check: (stats) => ({ earned: stats.total_tool_uses >= 100, progress: Math.min(100, (stats.total_tool_uses / 100) * 100) }),
+    check: (stats) => ({
+      earned: stats.total_tool_uses >= 100,
+      progress: Math.min(100, (stats.total_tool_uses / 100) * 100),
+    }),
   },
   {
     id: "tool-uses-1000",
@@ -70,7 +88,10 @@ const BADGE_DEFINITIONS = [
     description: "Use 1,000 tools across all sessions",
     icon: "⚙️",
     tier: "silver",
-    check: (stats) => ({ earned: stats.total_tool_uses >= 1000, progress: Math.min(100, (stats.total_tool_uses / 1000) * 100) }),
+    check: (stats) => ({
+      earned: stats.total_tool_uses >= 1000,
+      progress: Math.min(100, (stats.total_tool_uses / 1000) * 100),
+    }),
   },
   {
     id: "tool-uses-10000",
@@ -78,7 +99,10 @@ const BADGE_DEFINITIONS = [
     description: "Use 10,000 tools across all sessions",
     icon: "🏗️",
     tier: "gold",
-    check: (stats) => ({ earned: stats.total_tool_uses >= 10000, progress: Math.min(100, (stats.total_tool_uses / 10000) * 100) }),
+    check: (stats) => ({
+      earned: stats.total_tool_uses >= 10000,
+      progress: Math.min(100, (stats.total_tool_uses / 10000) * 100),
+    }),
   },
   {
     id: "unique-tools-5",
@@ -104,7 +128,10 @@ const BADGE_DEFINITIONS = [
     description: "Maintain a 3-day usage streak",
     icon: "🔥",
     tier: "bronze",
-    check: (stats) => ({ earned: stats.longest_streak >= 3, progress: Math.min(100, (stats.longest_streak / 3) * 100) }),
+    check: (stats) => ({
+      earned: stats.longest_streak >= 3,
+      progress: Math.min(100, (stats.longest_streak / 3) * 100),
+    }),
   },
   {
     id: "streak-7",
@@ -112,7 +139,10 @@ const BADGE_DEFINITIONS = [
     description: "Maintain a 7-day usage streak",
     icon: "🔥",
     tier: "silver",
-    check: (stats) => ({ earned: stats.longest_streak >= 7, progress: Math.min(100, (stats.longest_streak / 7) * 100) }),
+    check: (stats) => ({
+      earned: stats.longest_streak >= 7,
+      progress: Math.min(100, (stats.longest_streak / 7) * 100),
+    }),
   },
   {
     id: "streak-30",
@@ -120,7 +150,10 @@ const BADGE_DEFINITIONS = [
     description: "Maintain a 30-day usage streak",
     icon: "🔥",
     tier: "gold",
-    check: (stats) => ({ earned: stats.longest_streak >= 30, progress: Math.min(100, (stats.longest_streak / 30) * 100) }),
+    check: (stats) => ({
+      earned: stats.longest_streak >= 30,
+      progress: Math.min(100, (stats.longest_streak / 30) * 100),
+    }),
   },
   {
     id: "streak-100",
@@ -128,7 +161,10 @@ const BADGE_DEFINITIONS = [
     description: "Maintain a 100-day usage streak",
     icon: "💎",
     tier: "platinum",
-    check: (stats) => ({ earned: stats.longest_streak >= 100, progress: Math.min(100, (stats.longest_streak / 100) * 100) }),
+    check: (stats) => ({
+      earned: stats.longest_streak >= 100,
+      progress: Math.min(100, (stats.longest_streak / 100) * 100),
+    }),
   },
 
   // ── Efficiency Badges ───────────────────────────────────────────────────
@@ -140,7 +176,7 @@ const BADGE_DEFINITIONS = [
     tier: "silver",
     check: (stats) => {
       if (stats.total_tool_uses < 100) return { earned: false, progress: (stats.total_tool_uses / 100) * 50 };
-      const rate = parseFloat(stats.success_rate);
+      const rate = Number.parseFloat(stats.success_rate);
       return { earned: rate >= 90, progress: Math.min(100, (rate / 90) * 100) };
     },
   },
@@ -152,7 +188,7 @@ const BADGE_DEFINITIONS = [
     tier: "platinum",
     check: (stats) => {
       if (stats.total_tool_uses < 500) return { earned: false, progress: (stats.total_tool_uses / 500) * 50 };
-      const rate = parseFloat(stats.success_rate);
+      const rate = Number.parseFloat(stats.success_rate);
       return { earned: rate >= 98, progress: Math.min(100, (rate / 98) * 100) };
     },
   },
@@ -233,7 +269,10 @@ const BADGE_DEFINITIONS = [
     description: "Complete 5,000 conversation turns",
     icon: "🧠",
     tier: "silver",
-    check: (stats) => ({ earned: stats.total_turns >= 5000, progress: Math.min(100, (stats.total_turns / 5000) * 100) }),
+    check: (stats) => ({
+      earned: stats.total_turns >= 5000,
+      progress: Math.min(100, (stats.total_turns / 5000) * 100),
+    }),
   },
 
   // ── Efficiency & Depth Badges ──────────────────────────────────────────
@@ -410,8 +449,8 @@ class BadgeEngine {
 
     const stats = storage.getStats();
     const toolMilestone = Math.floor(stats.total_tool_uses / 100);
-    const existingMilestones = (storage.ensureFreshCache().xp_log || []).filter(
-      (e) => e.reason && e.reason.startsWith("Tool milestone"),
+    const existingMilestones = (storage.ensureFreshCache().xp_log || []).filter((e) =>
+      e.reason?.startsWith("Tool milestone"),
     ).length;
     if (toolMilestone > existingMilestones) {
       storage.addXP(XP_RULES.TOOL_USE_MILESTONE_100, `Tool milestone: ${toolMilestone * 100} uses`);

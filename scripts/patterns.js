@@ -34,7 +34,7 @@ function detectPatterns(sessions, minOccurrences = 5) {
   for (const [key, count] of Object.entries(sequenceCounts)) {
     if (count >= minOccurrences) {
       const sequence = key.split(",");
-      const name = NAMED_PATTERNS[key] || sequence.join(" \u2192 ") + " flow";
+      const name = NAMED_PATTERNS[key] || `${sequence.join(" \u2192 ")} flow`;
       patterns.push({ sequence, name, count });
     }
   }

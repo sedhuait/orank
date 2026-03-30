@@ -1,4 +1,4 @@
-import { computeMetrics, computeTrends, getWeekKey, getGrade, WEIGHTS } from "../scripts/metrics.js";
+import { WEIGHTS, computeMetrics, computeTrends, getGrade, getWeekKey } from "../scripts/metrics.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -163,10 +163,10 @@ describe("computeMetrics", () => {
       const base = new Date("2026-01-01T10:00:00.000Z").getTime();
       const tools = [
         { tool: "Read", ts: new Date(base).toISOString() },
-        { tool: "Read", ts: new Date(base + 5000).toISOString() },   // retry
+        { tool: "Read", ts: new Date(base + 5000).toISOString() }, // retry
         { tool: "Bash", ts: new Date(base + 10000).toISOString() },
         { tool: "Read", ts: new Date(base + 40000).toISOString() },
-        { tool: "Read", ts: new Date(base + 80000).toISOString() },  // 40s gap → no retry
+        { tool: "Read", ts: new Date(base + 80000).toISOString() }, // 40s gap → no retry
       ];
       const r = computeMetrics({ ...BASE, totalTools: 5, sessions: makeSessions(tools) });
       // 1 retry out of 5 = 20%
