@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * orank — Integrity & Anti-Gaming Engine
  *
@@ -6,23 +5,14 @@
  * Anomaly detection and rate limiting to prevent gaming.
  */
 
-"use strict";
-
-const fs = require("fs");
-const path = require("path");
-const os = require("os");
-const crypto = require("crypto");
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
 
 // ── EVENTS_FILE from storage.js ─────────────────────────────────────────────
 const DATA_DIR =
   process.env.CLAUDE_PLUGIN_DATA ||
-  path.join(
-    process.env.HOME || process.env.USERPROFILE,
-    ".claude",
-    "plugins",
-    "data",
-    "orank"
-  );
+  path.join(os.homedir(), ".claude", "plugins", "data", "orank");
 
 const EVENTS_FILE = path.join(DATA_DIR, "events.jsonl");
 
@@ -36,9 +26,6 @@ const RATE_LIMITS = {
 
 // ── Anomaly Detection Rules ─────────────────────────────────────────────────
 
-/**
- * Load all events from EVENTS_FILE
- */
 function loadAllEvents() {
   if (!fs.existsSync(EVENTS_FILE)) {
     return [];
@@ -62,26 +49,21 @@ function loadAllEvents() {
   return events;
 }
 
-/**
- * Anomaly detection rules.
- * Each rule has: id, name, description, check(events) function
- */
 const ANOMALY_RULES = [
   {
     id: "impossible-speed",
     name: "Impossible Speed",
     description: "More than 60 tool uses per minute",
     check: (events) => {
-      // Group tool_use events by minute (ts.slice(0,16))
       const minuteWindows = {};
       for (const event of events) {
         if (event.type !== "tool_use") continue;
-        const minute = event.ts.slice(0, 16); // YYYY-MM-DDTHH:MM
+        const minute = event.ts.slice(0, 16);
         minuteWindows[minute] = (minuteWindows[minute] || 0) + 1;
       }
 
       const violating = Object.entries(minuteWindows)
-        .filter(([_, count]) => count > 60)
+        .filter(([, count]) => count > 60)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5);
 
@@ -96,16 +78,15 @@ const ANOMALY_RULES = [
     name: "Session Spam",
     description: "More than 50 session_start events in a single day",
     check: (events) => {
-      // Group session_start events by day (ts.slice(0,10))
       const dayWindows = {};
       for (const event of events) {
         if (event.type !== "session_start") continue;
-        const day = event.ts.slice(0, 10); // YYYY-MM-DD
+        const day = event.ts.slice(0, 10);
         dayWindows[day] = (dayWindows[day] || 0) + 1;
       }
 
       const violating = Object.entries(dayWindows)
-        .filter(([_, count]) => count > 50)
+        .filter(([, count]) => count > 50)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5);
 
@@ -120,16 +101,15 @@ const ANOMALY_RULES = [
     name: "XP Spike",
     description: "More than 5000 total XP earned in a single day",
     check: (events) => {
-      // Group xp_award events by day, sum amounts
       const dayXP = {};
       for (const event of events) {
         if (event.type !== "xp_award") continue;
-        const day = event.ts.slice(0, 10); // YYYY-MM-DD
+        const day = event.ts.slice(0, 10);
         dayXP[day] = (dayXP[day] || 0) + (event.amount || 0);
       }
 
       const violating = Object.entries(dayXP)
-        .filter(([_, total]) => total > 5000)
+        .filter(([, total]) => total > 5000)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5);
 
@@ -144,7 +124,6 @@ const ANOMALY_RULES = [
     name: "Midnight Marathon",
     description: "Any session with start→end duration >20 hours",
     check: (events) => {
-      // Find session_start/session_end pairs
       const sessions = {};
       for (const event of events) {
         if (event.type === "session_start") {
@@ -178,7 +157,6 @@ const ANOMALY_RULES = [
     name: "Monotone Tools",
     description: "1000+ identical consecutive tool_use events",
     check: (events) => {
-      // Find consecutive runs of the same tool
       const toolEvents = events.filter((e) => e.type === "tool_use");
       if (toolEvents.length === 0) {
         return { flagged: false, evidence: [] };
@@ -200,7 +178,6 @@ const ANOMALY_RULES = [
         }
       }
 
-      // Check last streak
       if (streak > 1000) {
         violating.push({ tool: currentTool, streak });
       }
@@ -214,17 +191,10 @@ const ANOMALY_RULES = [
   },
 ];
 
-// ── Rate Limiting ───────────────────────────────────────────────────────────
-
-/**
- * Check if an action is rate-limited.
- * Returns { allowed: boolean, reason?: string }
- */
 function checkRateLimit(events, eventType) {
   const now = new Date();
 
   if (eventType === "tool_use" || eventType === "tool_failure") {
-    // Count tool_use events in last 60 seconds
     const oneMinuteAgo = new Date(now - 60000);
     const recentCount = events.filter((e) => {
       if (e.type !== "tool_use") return false;
@@ -241,7 +211,6 @@ function checkRateLimit(events, eventType) {
   }
 
   if (eventType === "session_start") {
-    // Count session_start events today
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const todayCount = events.filter((e) => {
       if (e.type !== "session_start") return false;
@@ -260,11 +229,6 @@ function checkRateLimit(events, eventType) {
   return { allowed: true };
 }
 
-// ── Integrity Report ────────────────────────────────────────────────────────
-
-/**
- * Run all anomaly rules and generate a trust score report
- */
 function runIntegrityReport(events) {
   const results = [];
 
@@ -289,7 +253,6 @@ function runIntegrityReport(events) {
     }
   }
 
-  // Calculate trust score: 100 minus 15 per flag
   const flaggedCount = results.filter((r) => r.flagged).length;
   const trustScore = Math.max(0, 100 - flaggedCount * 15);
 
@@ -302,9 +265,6 @@ function runIntegrityReport(events) {
   };
 }
 
-/**
- * Format integrity report for CLI display
- */
 function formatIntegrityReport(report) {
   const lines = [];
 
@@ -313,13 +273,11 @@ function formatIntegrityReport(report) {
   lines.push("╚══════════════════════════════════════════════════════════╝");
   lines.push("");
 
-  // Trust Score
   const scoreIcon = report.trustScore >= 80 ? "✓" : report.trustScore >= 50 ? "!" : "✗";
   lines.push(`  Trust Score: [${scoreIcon}] ${report.trustScore}/100`);
   lines.push(`  Total Events: ${report.totalEvents}    Flags: ${report.flags}`);
   lines.push("");
 
-  // Individual Checks
   lines.push("  ┌─────────────────────────────────────────────────────────┐");
   lines.push("  │  INTEGRITY CHECKS                                      │");
   lines.push("  └─────────────────────────────────────────────────────────┘");
@@ -343,13 +301,4 @@ function formatIntegrityReport(report) {
   return lines.join("\n");
 }
 
-// ── Exports ─────────────────────────────────────────────────────────────────
-
-module.exports = {
-  checkRateLimit,
-  runIntegrityReport,
-  formatIntegrityReport,
-  loadAllEvents,
-  RATE_LIMITS,
-  ANOMALY_RULES,
-};
+export { checkRateLimit, runIntegrityReport, formatIntegrityReport, loadAllEvents, RATE_LIMITS, ANOMALY_RULES };

@@ -8,7 +8,8 @@
  * Badge tiers: bronze → silver → gold → platinum → diamond
  */
 
-const { generateDynamicBadges, getNextBadges } = require("./dynamic-badges");
+import { generateDynamicBadges, getNextBadges } from "./dynamic-badges.js";
+import { detectPatterns } from "./patterns.js";
 
 // ── Badge Definitions ────────────────────────────────────────────────────────
 const BADGE_DEFINITIONS = [
@@ -242,7 +243,7 @@ const BADGE_DEFINITIONS = [
     description: "Maintain A+ efficiency score for 7 days",
     icon: "\uD83C\uDF1F",
     tier: "gold",
-    check: (stats) => {
+    check: () => {
       return { earned: false, progress: 0 };
     },
   },
@@ -305,16 +306,16 @@ const BADGE_DEFINITIONS = [
 
 // ── XP Award Rules ───────────────────────────────────────────────────────────
 const XP_RULES = {
-  SESSION_COMPLETE: 50,          // Completing a session
-  TOOL_USE_MILESTONE_100: 200,   // Every 100 tool uses
-  STREAK_MILESTONE_7: 500,       // 7-day streak
-  STREAK_MILESTONE_30: 2000,     // 30-day streak
-  STREAK_MILESTONE_100: 5000,    // 100-day streak
-  BADGE_EARNED_BRONZE: 100,      // Earning a bronze badge
-  BADGE_EARNED_SILVER: 250,      // Earning a silver badge
-  BADGE_EARNED_GOLD: 500,        // Earning a gold badge
-  BADGE_EARNED_PLATINUM: 1000,   // Earning a platinum badge
-  BADGE_EARNED_DIAMOND: 2500,    // Earning a diamond badge
+  SESSION_COMPLETE: 50,
+  TOOL_USE_MILESTONE_100: 200,
+  STREAK_MILESTONE_7: 500,
+  STREAK_MILESTONE_30: 2000,
+  STREAK_MILESTONE_100: 5000,
+  BADGE_EARNED_BRONZE: 100,
+  BADGE_EARNED_SILVER: 250,
+  BADGE_EARNED_GOLD: 500,
+  BADGE_EARNED_PLATINUM: 1000,
+  BADGE_EARNED_DIAMOND: 2500,
 };
 
 // ── Tier Calculation ─────────────────────────────────────────────────────────
@@ -338,7 +339,7 @@ function getTier(xp) {
     xp,
     nextTier: nextTier ? nextTier.name : null,
     nextTierXP: nextTier ? nextTier.min : null,
-    progress: nextTier ? ((xp - tier.min) / (nextTier.min - tier.min) * 100).toFixed(1) : 100,
+    progress: nextTier ? (((xp - tier.min) / (nextTier.min - tier.min)) * 100).toFixed(1) : 100,
   };
 }
 
@@ -353,13 +354,10 @@ class BadgeEngine {
     stats.total_xp = this.storage.getTotalXP();
 
     // Enrich stats for new badge checks
-    const { detectPatterns } = require("./patterns");
     const sessions = this.storage.getSessions();
     const patterns = detectPatterns(sessions);
     stats._pattern_count = patterns.length;
-    stats._zero_failure_session = Object.values(sessions).some(
-      (s) => s.tool_count >= 50 && s.failure_count === 0
-    );
+    stats._zero_failure_session = Object.values(sessions).some((s) => s.tool_count >= 50 && s.failure_count === 0);
 
     const snapshots = this.storage.getWeeklySnapshots();
     const weekKeys = Object.keys(snapshots).sort();
@@ -377,7 +375,6 @@ class BadgeEngine {
     const earnedIds = new Set(earnedBadges.map((b) => b.badge_id));
     const newlyEarned = [];
 
-    // Evaluate curated badges
     for (const badge of BADGE_DEFINITIONS) {
       if (earnedIds.has(badge.id)) continue;
       const result = badge.check(stats);
@@ -390,7 +387,6 @@ class BadgeEngine {
       }
     }
 
-    // Evaluate dynamic badges
     const tracks = this.storage.getDynamicBadgeTracks();
     const totalCmdCount = Object.values(stats.slash_command_counts || {}).reduce((a, b) => a + b, 0);
     const dynamicBadges = generateDynamicBadges(tracks, stats.total_tool_uses, totalCmdCount);
@@ -414,9 +410,9 @@ class BadgeEngine {
 
     const stats = storage.getStats();
     const toolMilestone = Math.floor(stats.total_tool_uses / 100);
-    const existingMilestones = (storage.ensureFreshCache().xp_log || [])
-      .filter((e) => e.reason && e.reason.startsWith("Tool milestone"))
-      .length;
+    const existingMilestones = (storage.ensureFreshCache().xp_log || []).filter(
+      (e) => e.reason && e.reason.startsWith("Tool milestone"),
+    ).length;
     if (toolMilestone > existingMilestones) {
       storage.addXP(XP_RULES.TOOL_USE_MILESTONE_100, `Tool milestone: ${toolMilestone * 100} uses`);
     }
@@ -440,16 +436,11 @@ class BadgeEngine {
     const stats = this.storage.getStats();
     stats.total_xp = this.storage.getTotalXP();
 
-    // Enrich stats with pattern and session data for new badge checks
-    const { detectPatterns } = require("./patterns");
     const sessions = this.storage.getSessions();
     const patterns = detectPatterns(sessions);
     stats._pattern_count = patterns.length;
-    stats._zero_failure_session = Object.values(sessions).some(
-      (s) => s.tool_count >= 50 && s.failure_count === 0
-    );
+    stats._zero_failure_session = Object.values(sessions).some((s) => s.tool_count >= 50 && s.failure_count === 0);
 
-    // Check weekly snapshots for trend-setter badge
     const snapshots = this.storage.getWeeklySnapshots();
     const weekKeys = Object.keys(snapshots).sort();
     let improvingWeeks = 0;
@@ -462,7 +453,6 @@ class BadgeEngine {
     }
     stats._improving_weeks = improvingWeeks;
 
-    // Evaluate curated badges
     const earned = [];
     const inProgress = [];
     const locked = [];
@@ -481,7 +471,6 @@ class BadgeEngine {
       }
     }
 
-    // Generate and merge dynamic badges
     const tracks = this.storage.getDynamicBadgeTracks();
     const totalCmdCount = Object.values(stats.slash_command_counts || {}).reduce((a, b) => a + b, 0);
     const dynamicBadges = generateDynamicBadges(tracks, stats.total_tool_uses, totalCmdCount);
@@ -514,4 +503,4 @@ class BadgeEngine {
   }
 }
 
-module.exports = { BadgeEngine, BADGE_DEFINITIONS, XP_RULES, TIERS, getTier };
+export { BadgeEngine, BADGE_DEFINITIONS, XP_RULES, TIERS, getTier };
