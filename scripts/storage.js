@@ -90,17 +90,17 @@ class Storage {
       dynamic_badge_tracks: {},
       last_weekly_summary_shown: null,
       // ── Rich data aggregations ──
-      lang_counts: {},          // { "typescript": 423, "python": 89 }
-      lang_lines: {},           // { "typescript": { added: 5000, removed: 2100 } }
-      framework_counts: {},     // { "react": 120, "nextjs": 45 }
-      project_stacks: {},       // { "typescript": 12, "python": 3 } (detected at session start)
-      bash_categories: {},      // { "node": 50, "testing": 30, "git": 200 }
-      bash_stacks: {},          // { "javascript": 50, "python": 12 }
-      repos: {},                // { "sedhuait/orank": { sessions: 5, tools: 200 } }
-      models_used: {},          // { "opus-4": 10, "sonnet-4": 5 }
-      file_types_edited: {},    // { ".tsx": 200, ".py": 50 }  (Edit/Write only)
+      lang_counts: {}, // { "typescript": 423, "python": 89 }
+      lang_lines: {}, // { "typescript": { added: 5000, removed: 2100 } }
+      framework_counts: {}, // { "react": 120, "nextjs": 45 }
+      project_stacks: {}, // { "typescript": 12, "python": 3 } (detected at session start)
+      bash_categories: {}, // { "node": 50, "testing": 30, "git": 200 }
+      bash_stacks: {}, // { "javascript": 50, "python": 12 }
+      repos: {}, // { "sedhuait/orank": { sessions: 5, tools: 200 } }
+      models_used: {}, // { "opus-4": 10, "sonnet-4": 5 }
+      file_types_edited: {}, // { ".tsx": 200, ".py": 50 }  (Edit/Write only)
       daily_lang_breakdown: {}, // { "2026-04-12": { "typescript": 10, "python": 3 } }
-      platforms: {},            // { "darwin": 100, "linux": 5 }
+      platforms: {}, // { "darwin": 100, "linux": 5 }
       total_chars_added: 0,
       total_chars_removed: 0,
       events_offset: 0,

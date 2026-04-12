@@ -1207,7 +1207,9 @@ describe("Rich data: session_start processing", () => {
   });
 
   test("session_start with project_stacks aggregates into cache", () => {
-    const events = [sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1", project_stacks: ["typescript", "nextjs"] })];
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1", project_stacks: ["typescript", "nextjs"] }),
+    ];
     writeEvents(tmpDir, events);
     storage.rebuildCache();
     const cache = storage.ensureFreshCache();
@@ -1402,9 +1404,21 @@ describe("Rich data: tool_use processing", () => {
   test("tool_use with file_path extracts extension into file_types_edited", () => {
     const events = [
       sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
-      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:01:00Z", file_path: "/src/app.tsx", edit_size: { type: "edit", chars_added: 100, chars_removed: 0 } }),
-      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:02:00Z", file_path: "/src/main.py", edit_size: { type: "edit", chars_added: 50, chars_removed: 0 } }),
-      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:03:00Z", file_path: "/src/app.tsx", edit_size: { type: "edit", chars_added: 75, chars_removed: 0 } }),
+      toolUseEvent("s1", "Edit", {
+        ts: "2026-03-15T10:01:00Z",
+        file_path: "/src/app.tsx",
+        edit_size: { type: "edit", chars_added: 100, chars_removed: 0 },
+      }),
+      toolUseEvent("s1", "Edit", {
+        ts: "2026-03-15T10:02:00Z",
+        file_path: "/src/main.py",
+        edit_size: { type: "edit", chars_added: 50, chars_removed: 0 },
+      }),
+      toolUseEvent("s1", "Edit", {
+        ts: "2026-03-15T10:03:00Z",
+        file_path: "/src/app.tsx",
+        edit_size: { type: "edit", chars_added: 75, chars_removed: 0 },
+      }),
     ];
     writeEvents(tmpDir, events);
     storage.rebuildCache();
@@ -1713,7 +1727,11 @@ describe("Rich data: public getters", () => {
   test("getEditStats returns aggregated edit data", () => {
     const events = [
       sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
-      toolUseEvent("s1", "Write", { ts: "2026-03-15T10:01:00Z", file_path: "/src/app.tsx", edit_size: { type: "write", chars: 1000 } }),
+      toolUseEvent("s1", "Write", {
+        ts: "2026-03-15T10:01:00Z",
+        file_path: "/src/app.tsx",
+        edit_size: { type: "write", chars: 1000 },
+      }),
       toolUseEvent("s1", "Edit", {
         ts: "2026-03-15T10:02:00Z",
         file_path: "/src/main.py",
