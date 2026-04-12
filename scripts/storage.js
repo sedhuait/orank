@@ -89,6 +89,20 @@ class Storage {
       weekly_snapshots: {},
       dynamic_badge_tracks: {},
       last_weekly_summary_shown: null,
+      // ── Rich data aggregations ──
+      lang_counts: {},          // { "typescript": 423, "python": 89 }
+      lang_lines: {},           // { "typescript": { added: 5000, removed: 2100 } }
+      framework_counts: {},     // { "react": 120, "nextjs": 45 }
+      project_stacks: {},       // { "typescript": 12, "python": 3 } (detected at session start)
+      bash_categories: {},      // { "node": 50, "testing": 30, "git": 200 }
+      bash_stacks: {},          // { "javascript": 50, "python": 12 }
+      repos: {},                // { "sedhuait/orank": { sessions: 5, tools: 200 } }
+      models_used: {},          // { "opus-4": 10, "sonnet-4": 5 }
+      file_types_edited: {},    // { ".tsx": 200, ".py": 50 }  (Edit/Write only)
+      daily_lang_breakdown: {}, // { "2026-04-12": { "typescript": 10, "python": 3 } }
+      platforms: {},            // { "darwin": 100, "linux": 5 }
+      total_chars_added: 0,
+      total_chars_removed: 0,
       events_offset: 0,
       last_rebuilt: null,
     };
@@ -175,7 +189,32 @@ class Storage {
           tool_count: 0,
           failure_count: 0,
           tools_ordered: [],
+          cwd: event.cwd || null,
+          repo: event.repo || null,
+          model: event.model || null,
+          langs: {},
         };
+        // Aggregate project stacks detected at session start
+        if (event.project_stacks && Array.isArray(event.project_stacks)) {
+          for (const stack of event.project_stacks) {
+            cache.project_stacks[stack] = (cache.project_stacks[stack] || 0) + 1;
+          }
+        }
+        // Track repos
+        if (event.repo) {
+          if (!cache.repos[event.repo]) {
+            cache.repos[event.repo] = { sessions: 0, tools: 0, first_seen: ts };
+          }
+          cache.repos[event.repo].sessions += 1;
+        }
+        // Track models
+        if (event.model) {
+          cache.models_used[event.model] = (cache.models_used[event.model] || 0) + 1;
+        }
+        // Track platforms
+        if (event.platform) {
+          cache.platforms[event.platform] = (cache.platforms[event.platform] || 0) + 1;
+        }
         break;
       }
 
@@ -199,12 +238,70 @@ class Storage {
         if (cache.sessions[sid]) {
           cache.sessions[sid].tool_count += 1;
           cache.sessions[sid].tools_ordered.push({ tool, ts });
+          // Track repo tool count
+          const repo = cache.sessions[sid].repo;
+          if (repo && cache.repos[repo]) {
+            cache.repos[repo].tools += 1;
+          }
         }
         const trackKey = `tool:${tool}`;
         if (!cache.dynamic_badge_tracks[trackKey]) {
           cache.dynamic_badge_tracks[trackKey] = { count: 0, earned_tiers: [] };
         }
         cache.dynamic_badge_tracks[trackKey].count += 1;
+
+        // ── Language & framework aggregation ──
+        if (event.lang) {
+          cache.lang_counts[event.lang] = (cache.lang_counts[event.lang] || 0) + 1;
+          // Per-session lang tracking
+          if (cache.sessions[sid]) {
+            cache.sessions[sid].langs[event.lang] = (cache.sessions[sid].langs[event.lang] || 0) + 1;
+          }
+          // Daily language breakdown
+          const date = ts ? ts.split("T")[0] : null;
+          if (date) {
+            if (!cache.daily_lang_breakdown[date]) cache.daily_lang_breakdown[date] = {};
+            cache.daily_lang_breakdown[date][event.lang] = (cache.daily_lang_breakdown[date][event.lang] || 0) + 1;
+          }
+        }
+        if (event.frameworks) {
+          for (const fw of event.frameworks) {
+            cache.framework_counts[fw] = (cache.framework_counts[fw] || 0) + 1;
+          }
+        }
+
+        // ── Edit size tracking ──
+        if (event.edit_size) {
+          if (event.edit_size.type === "write") {
+            cache.total_chars_added += event.edit_size.chars || 0;
+          } else if (event.edit_size.type === "edit") {
+            cache.total_chars_added += event.edit_size.chars_added || 0;
+            cache.total_chars_removed += event.edit_size.chars_removed || 0;
+          }
+          // Track which file types are being edited/written
+          if (event.file_path) {
+            const ext = event.file_path.match(/\.[^./]+$/)?.[0] || "unknown";
+            cache.file_types_edited[ext] = (cache.file_types_edited[ext] || 0) + 1;
+          }
+          // Track lines added/removed per language
+          if (event.lang && event.edit_size) {
+            if (!cache.lang_lines[event.lang]) {
+              cache.lang_lines[event.lang] = { added: 0, removed: 0 };
+            }
+            cache.lang_lines[event.lang].added += event.edit_size.chars_added || event.edit_size.chars || 0;
+            cache.lang_lines[event.lang].removed += event.edit_size.chars_removed || 0;
+          }
+        }
+
+        // ── Bash command classification ──
+        if (event.bash) {
+          if (event.bash.category) {
+            cache.bash_categories[event.bash.category] = (cache.bash_categories[event.bash.category] || 0) + 1;
+          }
+          if (event.bash.stack) {
+            cache.bash_stacks[event.bash.stack] = (cache.bash_stacks[event.bash.stack] || 0) + 1;
+          }
+        }
         break;
       }
 
@@ -223,6 +320,10 @@ class Storage {
           cache.dynamic_badge_tracks[trackKey] = { count: 0, earned_tiers: [] };
         }
         cache.dynamic_badge_tracks[trackKey].count += 1;
+        // Track failure language
+        if (event.lang) {
+          cache.lang_counts[event.lang] = (cache.lang_counts[event.lang] || 0) + 1;
+        }
         break;
       }
 
@@ -477,6 +578,77 @@ class Storage {
 
   getSlashCommandCounts() {
     return this.ensureFreshCache().slash_command_counts;
+  }
+
+  // ── Rich data getters ──────────────────────────────────────────────────
+
+  getLangBreakdown() {
+    const cache = this.ensureFreshCache();
+    const entries = Object.entries(cache.lang_counts || {}).sort((a, b) => b[1] - a[1]);
+    if (entries.length === 0) return [];
+    const total = entries.reduce((sum, [, count]) => sum + count, 0);
+    return entries.map(([lang, count]) => ({
+      lang,
+      count,
+      pct: ((count / total) * 100).toFixed(1),
+    }));
+  }
+
+  getFrameworkBreakdown() {
+    const cache = this.ensureFreshCache();
+    return Object.entries(cache.framework_counts || {})
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, count]) => ({ name, count }));
+  }
+
+  getRepos() {
+    const cache = this.ensureFreshCache();
+    return Object.entries(cache.repos || {})
+      .sort((a, b) => b[1].sessions - a[1].sessions)
+      .map(([name, data]) => ({ name, ...data }));
+  }
+
+  getModelsUsed() {
+    const cache = this.ensureFreshCache();
+    return Object.entries(cache.models_used || {})
+      .sort((a, b) => b[1] - a[1])
+      .map(([model, count]) => ({ model, count }));
+  }
+
+  getBashCategories() {
+    const cache = this.ensureFreshCache();
+    return Object.entries(cache.bash_categories || {})
+      .sort((a, b) => b[1] - a[1])
+      .map(([category, count]) => ({ category, count }));
+  }
+
+  getEditStats() {
+    const cache = this.ensureFreshCache();
+    return {
+      total_chars_added: cache.total_chars_added || 0,
+      total_chars_removed: cache.total_chars_removed || 0,
+      file_types: Object.entries(cache.file_types_edited || {})
+        .sort((a, b) => b[1] - a[1])
+        .map(([ext, count]) => ({ ext, count })),
+      lang_lines: cache.lang_lines || {},
+    };
+  }
+
+  getProjectStacks() {
+    const cache = this.ensureFreshCache();
+    return Object.entries(cache.project_stacks || {})
+      .sort((a, b) => b[1] - a[1])
+      .map(([stack, count]) => ({ stack, count }));
+  }
+
+  getDailyLangBreakdown(days = 28) {
+    const cache = this.ensureFreshCache();
+    const result = {};
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date(Date.now() - i * 86400000).toISOString().split("T")[0];
+      result[date] = cache.daily_lang_breakdown?.[date] || {};
+    }
+    return result;
   }
 
   addXP(amount, reason = "general") {

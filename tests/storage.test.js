@@ -1074,3 +1074,727 @@ describe("Data management", () => {
     expect(events[0].type).toBe("tool_use");
   });
 });
+
+// ── Rich data: _emptyCache fields ─────────────────────────────────────────
+
+describe("Rich data: _emptyCache fields", () => {
+  let storage;
+  let tmpDir;
+  let cleanup;
+
+  beforeEach(() => {
+    ({ storage, tmpDir, cleanup } = createTestStorage());
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  test("_emptyCache includes lang_counts as empty object", () => {
+    const cache = storage._emptyCache();
+    expect(cache).toHaveProperty("lang_counts");
+    expect(cache.lang_counts).toEqual({});
+  });
+
+  test("_emptyCache includes lang_lines as empty object", () => {
+    const cache = storage._emptyCache();
+    expect(cache).toHaveProperty("lang_lines");
+    expect(cache.lang_lines).toEqual({});
+  });
+
+  test("_emptyCache includes framework_counts as empty object", () => {
+    const cache = storage._emptyCache();
+    expect(cache).toHaveProperty("framework_counts");
+    expect(cache.framework_counts).toEqual({});
+  });
+
+  test("_emptyCache includes project_stacks as empty object", () => {
+    const cache = storage._emptyCache();
+    expect(cache).toHaveProperty("project_stacks");
+    expect(cache.project_stacks).toEqual({});
+  });
+
+  test("_emptyCache includes bash_categories as empty object", () => {
+    const cache = storage._emptyCache();
+    expect(cache).toHaveProperty("bash_categories");
+    expect(cache.bash_categories).toEqual({});
+  });
+
+  test("_emptyCache includes bash_stacks as empty object", () => {
+    const cache = storage._emptyCache();
+    expect(cache).toHaveProperty("bash_stacks");
+    expect(cache.bash_stacks).toEqual({});
+  });
+
+  test("_emptyCache includes repos as empty object", () => {
+    const cache = storage._emptyCache();
+    expect(cache).toHaveProperty("repos");
+    expect(cache.repos).toEqual({});
+  });
+
+  test("_emptyCache includes models_used as empty object", () => {
+    const cache = storage._emptyCache();
+    expect(cache).toHaveProperty("models_used");
+    expect(cache.models_used).toEqual({});
+  });
+
+  test("_emptyCache includes file_types_edited as empty object", () => {
+    const cache = storage._emptyCache();
+    expect(cache).toHaveProperty("file_types_edited");
+    expect(cache.file_types_edited).toEqual({});
+  });
+
+  test("_emptyCache includes daily_lang_breakdown as empty object", () => {
+    const cache = storage._emptyCache();
+    expect(cache).toHaveProperty("daily_lang_breakdown");
+    expect(cache.daily_lang_breakdown).toEqual({});
+  });
+
+  test("_emptyCache includes platforms as empty object", () => {
+    const cache = storage._emptyCache();
+    expect(cache).toHaveProperty("platforms");
+    expect(cache.platforms).toEqual({});
+  });
+
+  test("_emptyCache includes total_chars_added initialized to 0", () => {
+    const cache = storage._emptyCache();
+    expect(cache).toHaveProperty("total_chars_added");
+    expect(cache.total_chars_added).toBe(0);
+  });
+
+  test("_emptyCache includes total_chars_removed initialized to 0", () => {
+    const cache = storage._emptyCache();
+    expect(cache).toHaveProperty("total_chars_removed");
+    expect(cache.total_chars_removed).toBe(0);
+  });
+
+  test("all new rich data fields exist with correct default types", () => {
+    const cache = storage._emptyCache();
+    const richFields = [
+      "lang_counts",
+      "lang_lines",
+      "framework_counts",
+      "project_stacks",
+      "bash_categories",
+      "bash_stacks",
+      "repos",
+      "models_used",
+      "file_types_edited",
+      "daily_lang_breakdown",
+      "platforms",
+    ];
+    for (const field of richFields) {
+      expect(cache).toHaveProperty(field);
+      expect(typeof cache[field]).toBe("object");
+      expect(Array.isArray(cache[field])).toBe(false);
+    }
+  });
+});
+
+// ── Rich data: session_start processing ──────────────────────────────────
+
+describe("Rich data: session_start processing", () => {
+  let storage;
+  let tmpDir;
+  let cleanup;
+
+  beforeEach(() => {
+    ({ storage, tmpDir, cleanup } = createTestStorage());
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  test("session_start with project_stacks aggregates into cache", () => {
+    const events = [sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1", project_stacks: ["typescript", "nextjs"] })];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const cache = storage.ensureFreshCache();
+    expect(cache.project_stacks).toEqual({ typescript: 1, nextjs: 1 });
+  });
+
+  test("multiple sessions with project_stacks accumulate", () => {
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1", project_stacks: ["typescript"] }),
+      sessionStartEvent({ ts: "2026-03-15T11:00:00Z", sid: "s2", project_stacks: ["typescript", "python"] }),
+    ];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const cache = storage.ensureFreshCache();
+    expect(cache.project_stacks).toEqual({ typescript: 2, python: 1 });
+  });
+
+  test("session_start with repo creates repos entry with sessions counter", () => {
+    const events = [sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1", repo: "sedhuait/orank" })];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const cache = storage.ensureFreshCache();
+    expect(cache.repos).toHaveProperty("sedhuait/orank");
+    expect(cache.repos["sedhuait/orank"].sessions).toBe(1);
+    expect(cache.repos["sedhuait/orank"].tools).toBe(0);
+    expect(cache.repos["sedhuait/orank"].first_seen).toBe("2026-03-15T10:00:00Z");
+  });
+
+  test("multiple sessions in same repo increment sessions counter", () => {
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1", repo: "sedhuait/orank" }),
+      sessionStartEvent({ ts: "2026-03-15T11:00:00Z", sid: "s2", repo: "sedhuait/orank" }),
+    ];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const cache = storage.ensureFreshCache();
+    expect(cache.repos["sedhuait/orank"].sessions).toBe(2);
+  });
+
+  test("session_start with model aggregates into models_used", () => {
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1", model: "opus-4" }),
+      sessionStartEvent({ ts: "2026-03-15T11:00:00Z", sid: "s2", model: "sonnet-4" }),
+      sessionStartEvent({ ts: "2026-03-15T12:00:00Z", sid: "s3", model: "opus-4" }),
+    ];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const cache = storage.ensureFreshCache();
+    expect(cache.models_used).toEqual({ "opus-4": 2, "sonnet-4": 1 });
+  });
+
+  test("session_start with platform aggregates into platforms", () => {
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1", platform: "darwin" }),
+      sessionStartEvent({ ts: "2026-03-15T11:00:00Z", sid: "s2", platform: "linux" }),
+      sessionStartEvent({ ts: "2026-03-15T12:00:00Z", sid: "s3", platform: "darwin" }),
+    ];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const cache = storage.ensureFreshCache();
+    expect(cache.platforms).toEqual({ darwin: 2, linux: 1 });
+  });
+
+  test("session object includes repo, model, and langs fields", () => {
+    const events = [sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1", repo: "test/repo", model: "opus-4" })];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const sessions = storage.getSessions();
+    expect(sessions.s1).toHaveProperty("repo");
+    expect(sessions.s1).toHaveProperty("model");
+    expect(sessions.s1).toHaveProperty("langs");
+    expect(sessions.s1.repo).toBe("test/repo");
+    expect(sessions.s1.model).toBe("opus-4");
+    expect(sessions.s1.langs).toEqual({});
+  });
+
+  test("session_start with missing fields does not error", () => {
+    const events = [sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" })];
+    writeEvents(tmpDir, events);
+    expect(() => storage.rebuildCache()).not.toThrow();
+    const cache = storage.ensureFreshCache();
+    expect(cache.project_stacks).toEqual({});
+    expect(cache.repos).toEqual({});
+  });
+
+  test("empty project_stacks array does not add entries", () => {
+    const events = [sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1", project_stacks: [] })];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const cache = storage.ensureFreshCache();
+    expect(cache.project_stacks).toEqual({});
+  });
+});
+
+// ── Rich data: tool_use processing ───────────────────────────────────────
+
+describe("Rich data: tool_use processing", () => {
+  let storage;
+  let tmpDir;
+  let cleanup;
+
+  beforeEach(() => {
+    ({ storage, tmpDir, cleanup } = createTestStorage());
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  test("tool_use with lang aggregates into lang_counts", () => {
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
+      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:01:00Z", lang: "typescript" }),
+      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:02:00Z", lang: "python" }),
+      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:03:00Z", lang: "typescript" }),
+    ];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const cache = storage.ensureFreshCache();
+    expect(cache.lang_counts).toEqual({ typescript: 2, python: 1 });
+  });
+
+  test("tool_use with lang updates session.langs", () => {
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
+      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:01:00Z", lang: "typescript" }),
+      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:02:00Z", lang: "typescript" }),
+      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:03:00Z", lang: "python" }),
+    ];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const sessions = storage.getSessions();
+    expect(sessions.s1.langs).toEqual({ typescript: 2, python: 1 });
+  });
+
+  test("tool_use with lang aggregates into daily_lang_breakdown", () => {
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
+      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:01:00Z", lang: "typescript" }),
+      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:02:00Z", lang: "python" }),
+      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:03:00Z", lang: "typescript" }),
+    ];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const cache = storage.ensureFreshCache();
+    expect(cache.daily_lang_breakdown["2026-03-15"]).toEqual({ typescript: 2, python: 1 });
+  });
+
+  test("tool_use with frameworks aggregates into framework_counts", () => {
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
+      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:01:00Z", frameworks: ["react", "nextjs"] }),
+      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:02:00Z", frameworks: ["react"] }),
+    ];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const cache = storage.ensureFreshCache();
+    expect(cache.framework_counts).toEqual({ react: 2, nextjs: 1 });
+  });
+
+  test("tool_use with edit_size type=write adds to total_chars_added", () => {
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
+      toolUseEvent("s1", "Write", { ts: "2026-03-15T10:01:00Z", edit_size: { type: "write", chars: 1000 } }),
+      toolUseEvent("s1", "Write", { ts: "2026-03-15T10:02:00Z", edit_size: { type: "write", chars: 500 } }),
+    ];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const cache = storage.ensureFreshCache();
+    expect(cache.total_chars_added).toBe(1500);
+  });
+
+  test("tool_use with edit_size type=edit tracks chars_added and chars_removed", () => {
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
+      toolUseEvent("s1", "Edit", {
+        ts: "2026-03-15T10:01:00Z",
+        edit_size: { type: "edit", chars_added: 500, chars_removed: 200 },
+      }),
+      toolUseEvent("s1", "Edit", {
+        ts: "2026-03-15T10:02:00Z",
+        edit_size: { type: "edit", chars_added: 300, chars_removed: 100 },
+      }),
+    ];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const cache = storage.ensureFreshCache();
+    expect(cache.total_chars_added).toBe(800);
+    expect(cache.total_chars_removed).toBe(300);
+  });
+
+  test("tool_use with file_path extracts extension into file_types_edited", () => {
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
+      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:01:00Z", file_path: "/src/app.tsx", edit_size: { type: "edit", chars_added: 100, chars_removed: 0 } }),
+      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:02:00Z", file_path: "/src/main.py", edit_size: { type: "edit", chars_added: 50, chars_removed: 0 } }),
+      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:03:00Z", file_path: "/src/app.tsx", edit_size: { type: "edit", chars_added: 75, chars_removed: 0 } }),
+    ];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const cache = storage.ensureFreshCache();
+    expect(cache.file_types_edited).toEqual({ ".tsx": 2, ".py": 1 });
+  });
+
+  test("tool_use with lang and edit_size tracks lines in lang_lines", () => {
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
+      toolUseEvent("s1", "Edit", {
+        ts: "2026-03-15T10:01:00Z",
+        lang: "typescript",
+        edit_size: { type: "edit", chars_added: 500, chars_removed: 200 },
+      }),
+      toolUseEvent("s1", "Edit", {
+        ts: "2026-03-15T10:02:00Z",
+        lang: "python",
+        edit_size: { type: "write", chars: 1000 },
+      }),
+    ];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const cache = storage.ensureFreshCache();
+    expect(cache.lang_lines.typescript).toEqual({ added: 500, removed: 200 });
+    expect(cache.lang_lines.python).toEqual({ added: 1000, removed: 0 });
+  });
+
+  test("tool_use with bash.category aggregates into bash_categories", () => {
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
+      toolUseEvent("s1", "Bash", { ts: "2026-03-15T10:01:00Z", bash: { category: "node", stack: "javascript" } }),
+      toolUseEvent("s1", "Bash", { ts: "2026-03-15T10:02:00Z", bash: { category: "testing", stack: "javascript" } }),
+      toolUseEvent("s1", "Bash", { ts: "2026-03-15T10:03:00Z", bash: { category: "node", stack: "javascript" } }),
+    ];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const cache = storage.ensureFreshCache();
+    expect(cache.bash_categories).toEqual({ node: 2, testing: 1 });
+  });
+
+  test("tool_use with bash.stack aggregates into bash_stacks", () => {
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
+      toolUseEvent("s1", "Bash", { ts: "2026-03-15T10:01:00Z", bash: { category: "node", stack: "javascript" } }),
+      toolUseEvent("s1", "Bash", { ts: "2026-03-15T10:02:00Z", bash: { category: "git", stack: "python" } }),
+      toolUseEvent("s1", "Bash", { ts: "2026-03-15T10:03:00Z", bash: { category: "node", stack: "javascript" } }),
+    ];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const cache = storage.ensureFreshCache();
+    expect(cache.bash_stacks).toEqual({ javascript: 2, python: 1 });
+  });
+
+  test("tool_use in session with repo increments repos[repo].tools counter", () => {
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1", repo: "sedhuait/orank" }),
+      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:01:00Z" }),
+      toolUseEvent("s1", "Read", { ts: "2026-03-15T10:02:00Z" }),
+      toolUseEvent("s1", "Bash", { ts: "2026-03-15T10:03:00Z" }),
+    ];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const cache = storage.ensureFreshCache();
+    expect(cache.repos["sedhuait/orank"].tools).toBe(3);
+  });
+
+  test("tool_use with missing lang/frameworks/bash fields does not error", () => {
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
+      toolUseEvent("s1", "Read", { ts: "2026-03-15T10:01:00Z" }),
+    ];
+    writeEvents(tmpDir, events);
+    expect(() => storage.rebuildCache()).not.toThrow();
+  });
+
+  test("tool_use with empty frameworks array does not add entries", () => {
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
+      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:01:00Z", frameworks: [] }),
+    ];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const cache = storage.ensureFreshCache();
+    expect(cache.framework_counts).toEqual({});
+  });
+});
+
+// ── Rich data: tool_failure processing ────────────────────────────────────
+
+describe("Rich data: tool_failure processing", () => {
+  let storage;
+  let tmpDir;
+  let cleanup;
+
+  beforeEach(() => {
+    ({ storage, tmpDir, cleanup } = createTestStorage());
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  test("tool_failure with lang aggregates into lang_counts", () => {
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
+      toolFailureEvent("s1", "Bash", { ts: "2026-03-15T10:01:00Z", lang: "python" }),
+      toolFailureEvent("s1", "Edit", { ts: "2026-03-15T10:02:00Z", lang: "typescript" }),
+      toolFailureEvent("s1", "Bash", { ts: "2026-03-15T10:03:00Z", lang: "python" }),
+    ];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const cache = storage.ensureFreshCache();
+    expect(cache.lang_counts).toEqual({ python: 2, typescript: 1 });
+  });
+
+  test("tool_failure with missing lang field does not error", () => {
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
+      toolFailureEvent("s1", "Bash", { ts: "2026-03-15T10:01:00Z" }),
+    ];
+    writeEvents(tmpDir, events);
+    expect(() => storage.rebuildCache()).not.toThrow();
+    const cache = storage.ensureFreshCache();
+    expect(cache.lang_counts).toEqual({});
+  });
+
+  test("tool_failure lang tracking is independent of tool_use lang tracking", () => {
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
+      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:01:00Z", lang: "typescript" }),
+      toolFailureEvent("s1", "Bash", { ts: "2026-03-15T10:02:00Z", lang: "python" }),
+      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:03:00Z", lang: "typescript" }),
+    ];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const cache = storage.ensureFreshCache();
+    expect(cache.lang_counts).toEqual({ typescript: 2, python: 1 });
+  });
+});
+
+// ── Rich data: public getters ────────────────────────────────────────────
+
+describe("Rich data: public getters", () => {
+  let storage;
+  let tmpDir;
+  let cleanup;
+
+  beforeEach(() => {
+    ({ storage, tmpDir, cleanup } = createTestStorage());
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  test("getLangBreakdown returns empty array when no data", () => {
+    const breakdown = storage.getLangBreakdown();
+    expect(Array.isArray(breakdown)).toBe(true);
+    expect(breakdown).toHaveLength(0);
+  });
+
+  test("getLangBreakdown returns sorted array with pct field", () => {
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
+      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:01:00Z", lang: "typescript" }),
+      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:02:00Z", lang: "typescript" }),
+      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:03:00Z", lang: "python" }),
+    ];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const breakdown = storage.getLangBreakdown();
+    expect(breakdown).toHaveLength(2);
+    expect(breakdown[0].lang).toBe("typescript");
+    expect(breakdown[0].count).toBe(2);
+    expect(breakdown[1].lang).toBe("python");
+    expect(breakdown[1].count).toBe(1);
+    // Check pct is a string representing percentage
+    expect(typeof breakdown[0].pct).toBe("string");
+    expect(breakdown[0].pct).toMatch(/^\d+(\.\d+)?$/);
+  });
+
+  test("getLangBreakdown sorts by count descending", () => {
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
+      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:01:00Z", lang: "python" }),
+      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:02:00Z", lang: "typescript" }),
+      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:03:00Z", lang: "typescript" }),
+      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:04:00Z", lang: "typescript" }),
+    ];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const breakdown = storage.getLangBreakdown();
+    expect(breakdown[0].lang).toBe("typescript");
+    expect(breakdown[1].lang).toBe("python");
+  });
+
+  test("getFrameworkBreakdown returns empty array when no data", () => {
+    const breakdown = storage.getFrameworkBreakdown();
+    expect(Array.isArray(breakdown)).toBe(true);
+    expect(breakdown).toHaveLength(0);
+  });
+
+  test("getFrameworkBreakdown returns sorted array", () => {
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
+      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:01:00Z", frameworks: ["react", "nextjs"] }),
+      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:02:00Z", frameworks: ["react"] }),
+    ];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const breakdown = storage.getFrameworkBreakdown();
+    expect(breakdown).toHaveLength(2);
+    expect(breakdown[0].name).toBe("react");
+    expect(breakdown[0].count).toBe(2);
+    expect(breakdown[1].name).toBe("nextjs");
+  });
+
+  test("getRepos returns empty array when no data", () => {
+    const repos = storage.getRepos();
+    expect(Array.isArray(repos)).toBe(true);
+    expect(repos).toHaveLength(0);
+  });
+
+  test("getRepos returns repos with sessions, tools, and first_seen", () => {
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1", repo: "repo-a" }),
+      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:01:00Z" }),
+      sessionStartEvent({ ts: "2026-03-15T11:00:00Z", sid: "s2", repo: "repo-a" }),
+      toolUseEvent("s2", "Read", { ts: "2026-03-15T11:01:00Z" }),
+    ];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const repos = storage.getRepos();
+    expect(repos).toHaveLength(1);
+    expect(repos[0].name).toBe("repo-a");
+    expect(repos[0].sessions).toBe(2);
+    expect(repos[0].tools).toBe(2);
+    expect(repos[0].first_seen).toBe("2026-03-15T10:00:00Z");
+  });
+
+  test("getRepos sorts by sessions descending", () => {
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1", repo: "repo-a" }),
+      sessionStartEvent({ ts: "2026-03-15T11:00:00Z", sid: "s2", repo: "repo-b" }),
+      sessionStartEvent({ ts: "2026-03-15T12:00:00Z", sid: "s3", repo: "repo-b" }),
+    ];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const repos = storage.getRepos();
+    expect(repos[0].name).toBe("repo-b");
+    expect(repos[1].name).toBe("repo-a");
+  });
+
+  test("getModelsUsed returns empty array when no data", () => {
+    const models = storage.getModelsUsed();
+    expect(Array.isArray(models)).toBe(true);
+    expect(models).toHaveLength(0);
+  });
+
+  test("getModelsUsed returns sorted models with counts", () => {
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1", model: "opus-4" }),
+      sessionStartEvent({ ts: "2026-03-15T11:00:00Z", sid: "s2", model: "sonnet-4" }),
+      sessionStartEvent({ ts: "2026-03-15T12:00:00Z", sid: "s3", model: "opus-4" }),
+    ];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const models = storage.getModelsUsed();
+    expect(models).toHaveLength(2);
+    expect(models[0].model).toBe("opus-4");
+    expect(models[0].count).toBe(2);
+    expect(models[1].model).toBe("sonnet-4");
+  });
+
+  test("getBashCategories returns empty array when no data", () => {
+    const categories = storage.getBashCategories();
+    expect(Array.isArray(categories)).toBe(true);
+    expect(categories).toHaveLength(0);
+  });
+
+  test("getBashCategories returns sorted categories", () => {
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
+      toolUseEvent("s1", "Bash", { ts: "2026-03-15T10:01:00Z", bash: { category: "node", stack: "javascript" } }),
+      toolUseEvent("s1", "Bash", { ts: "2026-03-15T10:02:00Z", bash: { category: "testing", stack: "javascript" } }),
+      toolUseEvent("s1", "Bash", { ts: "2026-03-15T10:03:00Z", bash: { category: "node", stack: "javascript" } }),
+    ];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const categories = storage.getBashCategories();
+    expect(categories).toHaveLength(2);
+    expect(categories[0].category).toBe("node");
+    expect(categories[0].count).toBe(2);
+    expect(categories[1].category).toBe("testing");
+  });
+
+  test("getEditStats returns zero totals when no data", () => {
+    const stats = storage.getEditStats();
+    expect(stats.total_chars_added).toBe(0);
+    expect(stats.total_chars_removed).toBe(0);
+    expect(Array.isArray(stats.file_types)).toBe(true);
+    expect(stats.file_types).toHaveLength(0);
+  });
+
+  test("getEditStats returns aggregated edit data", () => {
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
+      toolUseEvent("s1", "Write", { ts: "2026-03-15T10:01:00Z", file_path: "/src/app.tsx", edit_size: { type: "write", chars: 1000 } }),
+      toolUseEvent("s1", "Edit", {
+        ts: "2026-03-15T10:02:00Z",
+        file_path: "/src/main.py",
+        edit_size: { type: "edit", chars_added: 500, chars_removed: 200 },
+      }),
+    ];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const stats = storage.getEditStats();
+    expect(stats.total_chars_added).toBe(1500);
+    expect(stats.total_chars_removed).toBe(200);
+    expect(stats.file_types).toHaveLength(2);
+    expect(stats.file_types[0].ext).toBe(".tsx");
+  });
+
+  test("getEditStats returns lang_lines object", () => {
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
+      toolUseEvent("s1", "Edit", {
+        ts: "2026-03-15T10:01:00Z",
+        lang: "typescript",
+        edit_size: { type: "edit", chars_added: 500, chars_removed: 200 },
+      }),
+    ];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const stats = storage.getEditStats();
+    expect(stats.lang_lines).toHaveProperty("typescript");
+    expect(stats.lang_lines.typescript.added).toBe(500);
+    expect(stats.lang_lines.typescript.removed).toBe(200);
+  });
+
+  test("getProjectStacks returns empty array when no data", () => {
+    const stacks = storage.getProjectStacks();
+    expect(Array.isArray(stacks)).toBe(true);
+    expect(stacks).toHaveLength(0);
+  });
+
+  test("getProjectStacks returns sorted stacks", () => {
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1", project_stacks: ["typescript", "nextjs"] }),
+      sessionStartEvent({ ts: "2026-03-15T11:00:00Z", sid: "s2", project_stacks: ["typescript"] }),
+    ];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const stacks = storage.getProjectStacks();
+    expect(stacks).toHaveLength(2);
+    expect(stacks[0].stack).toBe("typescript");
+    expect(stacks[0].count).toBe(2);
+    expect(stacks[1].stack).toBe("nextjs");
+  });
+
+  test("getDailyLangBreakdown returns object with date keys for last N days", () => {
+    const today = new Date().toISOString().split("T")[0];
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+    const events = [
+      sessionStartEvent({ ts: `${today}T10:00:00Z`, sid: "s1" }),
+      toolUseEvent("s1", "Edit", { ts: `${today}T10:01:00Z`, lang: "typescript" }),
+      sessionStartEvent({ ts: `${yesterday}T10:00:00Z`, sid: "s2" }),
+      toolUseEvent("s2", "Edit", { ts: `${yesterday}T10:01:00Z`, lang: "python" }),
+    ];
+    writeEvents(tmpDir, events);
+    storage.rebuildCache();
+    const breakdown = storage.getDailyLangBreakdown(2);
+    expect(breakdown).toHaveProperty(today);
+    expect(breakdown).toHaveProperty(yesterday);
+    expect(breakdown[today]).toEqual({ typescript: 1 });
+    expect(breakdown[yesterday]).toEqual({ python: 1 });
+  });
+
+  test("getDailyLangBreakdown default days parameter is 28", () => {
+    const breakdown = storage.getDailyLangBreakdown();
+    expect(Object.keys(breakdown).length).toBe(28);
+  });
+
+  test("getDailyLangBreakdown returns empty objects for days without data", () => {
+    const breakdown = storage.getDailyLangBreakdown(3);
+    const dates = Object.keys(breakdown);
+    expect(dates.length).toBe(3);
+    for (const date of dates) {
+      expect(typeof breakdown[date]).toBe("object");
+    }
+  });
+});

@@ -542,3 +542,673 @@ describe("Edge cases", () => {
     expect(events.map((e) => e.type)).toEqual(["session_start", "turn_complete", "session_end"]);
   });
 });
+
+// ── SessionStart rich data capture ──────────────────────────────────────────
+
+describe("SessionStart rich data capture", () => {
+  test("Captures platform and arch from os module", () => {
+    runTracker({
+      hook_event_name: "SessionStart",
+      session_id: "sess-platform",
+      cwd: tmpDir,
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    const ev = events[0];
+    expect(ev.platform).toBeDefined();
+    expect(typeof ev.platform).toBe("string");
+    expect(ev.arch).toBeDefined();
+    expect(typeof ev.arch).toBe("string");
+  });
+
+  test("Captures node_version from process.version", () => {
+    runTracker({
+      hook_event_name: "SessionStart",
+      session_id: "sess-node",
+      cwd: tmpDir,
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    const ev = events[0];
+    expect(ev.node_version).toBeDefined();
+    expect(ev.node_version).toMatch(/^v\d+\.\d+\.\d+/);
+  });
+
+  test("Detects javascript stack from package.json", () => {
+    fs.writeFileSync(path.join(tmpDir, "package.json"), '{"name":"test"}');
+    runTracker({
+      hook_event_name: "SessionStart",
+      session_id: "sess-js-stack",
+      cwd: tmpDir,
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    const ev = events[0];
+    expect(ev.project_stacks).toContain("javascript");
+  });
+
+  test("Detects typescript stack from tsconfig.json", () => {
+    fs.writeFileSync(path.join(tmpDir, "tsconfig.json"), '{}');
+    runTracker({
+      hook_event_name: "SessionStart",
+      session_id: "sess-ts-stack",
+      cwd: tmpDir,
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    const ev = events[0];
+    expect(ev.project_stacks).toContain("typescript");
+  });
+
+  test("Detects multiple stacks (javascript + typescript)", () => {
+    fs.writeFileSync(path.join(tmpDir, "package.json"), '{"name":"test"}');
+    fs.writeFileSync(path.join(tmpDir, "tsconfig.json"), '{}');
+    runTracker({
+      hook_event_name: "SessionStart",
+      session_id: "sess-multi-stack",
+      cwd: tmpDir,
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    const ev = events[0];
+    expect(ev.project_stacks).toContain("javascript");
+    expect(ev.project_stacks).toContain("typescript");
+  });
+
+  test("Detects python stack from requirements.txt", () => {
+    fs.writeFileSync(path.join(tmpDir, "requirements.txt"), "");
+    runTracker({
+      hook_event_name: "SessionStart",
+      session_id: "sess-py-stack",
+      cwd: tmpDir,
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    const ev = events[0];
+    expect(ev.project_stacks).toContain("python");
+  });
+
+  test("Detects rust stack from Cargo.toml", () => {
+    fs.writeFileSync(path.join(tmpDir, "Cargo.toml"), "");
+    runTracker({
+      hook_event_name: "SessionStart",
+      session_id: "sess-rust-stack",
+      cwd: tmpDir,
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    const ev = events[0];
+    expect(ev.project_stacks).toContain("rust");
+  });
+
+  test("Returns empty project_stacks array when no markers found", () => {
+    runTracker({
+      hook_event_name: "SessionStart",
+      session_id: "sess-no-markers",
+      cwd: tmpDir,
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    const ev = events[0];
+    expect(ev.project_stacks).toEqual([]);
+  });
+
+  test("Captures repo from git (or null in non-git directory)", () => {
+    runTracker({
+      hook_event_name: "SessionStart",
+      session_id: "sess-git",
+      cwd: tmpDir,
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    const ev = events[0];
+    // In tmpDir (non-git), repo should be null
+    expect(ev.repo).toBeNull();
+  });
+
+  test("Captures branch from git (or null in non-git directory)", () => {
+    runTracker({
+      hook_event_name: "SessionStart",
+      session_id: "sess-branch",
+      cwd: tmpDir,
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    const ev = events[0];
+    // In tmpDir (non-git), branch should be null
+    expect(ev.branch).toBeNull();
+  });
+});
+
+// ── PostToolUse language detection ──────────────────────────────────────────
+
+describe("PostToolUse language detection", () => {
+  test("Detects typescript from .ts extension", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-ts-lang",
+      tool_name: "Read",
+      tool_input: { file_path: "/src/utils.ts" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].lang).toBe("typescript");
+  });
+
+  test("Detects python from .py extension", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-py-lang",
+      tool_name: "Read",
+      tool_input: { file_path: "/src/main.py" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].lang).toBe("python");
+  });
+
+  test("Detects rust from .rs extension", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-rs-lang",
+      tool_name: "Read",
+      tool_input: { file_path: "/src/lib.rs" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].lang).toBe("rust");
+  });
+
+  test("Detects javascript from .js extension", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-js-lang",
+      tool_name: "Read",
+      tool_input: { file_path: "/src/index.js" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].lang).toBe("javascript");
+  });
+
+  test("Detects docker from Dockerfile", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-docker-lang",
+      tool_name: "Read",
+      tool_input: { file_path: "/Dockerfile" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].lang).toBe("docker");
+  });
+
+  test("Returns null lang for unknown extensions", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-unknown-lang",
+      tool_name: "Read",
+      tool_input: { file_path: "/config.unknown" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].lang).toBeNull();
+  });
+
+  test("Returns null lang when file_path is missing", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-no-path-lang",
+      tool_name: "Bash",
+      tool_input: { command: "ls" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].lang).toBeNull();
+  });
+
+  test("Detects react framework from .tsx file path", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-react-fw",
+      tool_name: "Read",
+      tool_input: { file_path: "/components/Button.tsx" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].frameworks).toContain("react");
+  });
+
+  test("Detects nextjs framework from /pages/ path", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-nextjs-fw",
+      tool_name: "Read",
+      tool_input: { file_path: "/pages/index.tsx" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].frameworks).toContain("nextjs");
+  });
+
+  test("Returns empty frameworks array when none detected", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-no-fw",
+      tool_name: "Read",
+      tool_input: { file_path: "/src/main.py" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    // frameworks should not be present if empty
+    expect(events[0].frameworks).toBeUndefined();
+  });
+
+  test("Detects testing framework from .test.ts file path", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-test-fw",
+      tool_name: "Read",
+      tool_input: { file_path: "/src/main.test.ts" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].frameworks).toContain("testing");
+  });
+});
+
+// ── PostToolUse edit size tracking ──────────────────────────────────────────
+
+describe("PostToolUse edit size tracking", () => {
+  test("Tracks write size for Write tool", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-write",
+      tool_name: "Write",
+      tool_input: { file_path: "/file.txt", content: "hello world" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].edit_size).toBeDefined();
+    expect(events[0].edit_size.type).toBe("write");
+    expect(events[0].edit_size.chars).toBe(11);
+  });
+
+  test("Tracks edit size for Edit tool", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-edit",
+      tool_name: "Edit",
+      tool_input: {
+        file_path: "/file.txt",
+        old_string: "hello",
+        new_string: "goodbye world",
+      },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].edit_size).toBeDefined();
+    expect(events[0].edit_size.type).toBe("edit");
+    expect(events[0].edit_size.chars_removed).toBe(5);
+    expect(events[0].edit_size.chars_added).toBe(13);
+  });
+
+  test("Does not include edit_size for non-edit tools", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-no-edit",
+      tool_name: "Read",
+      tool_input: { file_path: "/file.txt" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].edit_size).toBeUndefined();
+  });
+
+  test("Handles empty content in Write tool", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-empty-write",
+      tool_name: "Write",
+      tool_input: { file_path: "/file.txt", content: "" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].edit_size).toBeUndefined();
+  });
+
+  test("Handles zero-length edit (only old_string)", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-deletion",
+      tool_name: "Edit",
+      tool_input: {
+        file_path: "/file.txt",
+        old_string: "hello",
+        new_string: "",
+      },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].edit_size.type).toBe("edit");
+    expect(events[0].edit_size.chars_removed).toBe(5);
+    expect(events[0].edit_size.chars_added).toBe(0);
+  });
+
+  test("Handles insertion in Edit tool (old_string empty)", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-insertion",
+      tool_name: "Edit",
+      tool_input: {
+        file_path: "/file.txt",
+        old_string: "",
+        new_string: "new content",
+      },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].edit_size.type).toBe("edit");
+    expect(events[0].edit_size.chars_removed).toBe(0);
+    expect(events[0].edit_size.chars_added).toBe(11);
+  });
+});
+
+// ── PostToolUse bash command classification ──────────────────────────────────
+
+describe("PostToolUse bash command classification", () => {
+  test("Classifies npm install command", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-npm",
+      tool_name: "Bash",
+      tool_input: { command: "npm install lodash" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].bash.category).toBe("node");
+    expect(events[0].bash.stack).toBe("javascript");
+    expect(events[0].bash.command_preview).toBe("npm install lodash");
+  });
+
+  test("Classifies pip install command", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-pip",
+      tool_name: "Bash",
+      tool_input: { command: "pip install pandas" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].bash.category).toBe("python");
+    expect(events[0].bash.stack).toBe("python");
+  });
+
+  test("Classifies git status command", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-git-cmd",
+      tool_name: "Bash",
+      tool_input: { command: "git status" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].bash.category).toBe("git");
+    expect(events[0].bash.stack).toBeNull();
+  });
+
+  test("Classifies docker build command", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-docker-cmd",
+      tool_name: "Bash",
+      tool_input: { command: "docker build ." },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].bash.category).toBe("docker");
+    expect(events[0].bash.stack).toBe("devops");
+  });
+
+  test("Classifies cargo build command", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-cargo",
+      tool_name: "Bash",
+      tool_input: { command: "cargo build --release" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].bash.category).toBe("rust");
+    expect(events[0].bash.stack).toBe("rust");
+  });
+
+  test("Returns null category for unknown command", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-unknown-cmd",
+      tool_name: "Bash",
+      tool_input: { command: "echo hello" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].bash.category).toBeNull();
+    expect(events[0].bash.stack).toBeNull();
+  });
+
+  test("Does not include bash for non-Bash tools", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-no-bash",
+      tool_name: "Read",
+      tool_input: { file_path: "/file.txt" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].bash).toBeUndefined();
+  });
+
+  test("Truncates long command preview to 120 chars", () => {
+    const longCmd = "npm install " + "package ".repeat(20);
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-long-cmd",
+      tool_name: "Bash",
+      tool_input: { command: longCmd },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].bash.command_preview.length).toBeLessThanOrEqual(120);
+  });
+
+  test("Classifies yarn install command", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-yarn",
+      tool_name: "Bash",
+      tool_input: { command: "yarn add react" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].bash.category).toBe("node");
+    expect(events[0].bash.stack).toBe("javascript");
+  });
+
+  test("Classifies go build command", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-go",
+      tool_name: "Bash",
+      tool_input: { command: "go build ./..." },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].bash.category).toBe("go");
+    expect(events[0].bash.stack).toBe("go");
+  });
+
+  test("Classifies kubectl command", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-kubectl",
+      tool_name: "Bash",
+      tool_input: { command: "kubectl apply -f config.yaml" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].bash.category).toBe("kubernetes");
+    expect(events[0].bash.stack).toBe("devops");
+  });
+});
+
+// ── PostToolUse search pattern capture ──────────────────────────────────────
+
+describe("PostToolUse search pattern capture", () => {
+  test("Captures pattern from Grep tool", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-grep",
+      tool_name: "Grep",
+      tool_input: { pattern: "TODO|FIXME", glob: "*.js" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].search).toBeDefined();
+    expect(events[0].search.pattern).toBe("TODO|FIXME");
+    expect(events[0].search.glob).toBe("*.js");
+  });
+
+  test("Captures pattern from Glob tool", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-glob",
+      tool_name: "Glob",
+      tool_input: { pattern: "**/*.test.ts" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].search).toBeDefined();
+    expect(events[0].search.pattern).toBe("**/*.test.ts");
+  });
+
+  test("Truncates long pattern to 100 chars", () => {
+    const longPattern = "pattern".repeat(30);
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-long-pattern",
+      tool_name: "Grep",
+      tool_input: { pattern: longPattern },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].search.pattern.length).toBeLessThanOrEqual(100);
+  });
+
+  test("Does not include search for non-search tools", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-no-search",
+      tool_name: "Read",
+      tool_input: { file_path: "/file.txt" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].search).toBeUndefined();
+  });
+
+  test("Does not include search when pattern is missing", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-no-pattern",
+      tool_name: "Grep",
+      tool_input: { glob: "*.js" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].search).toBeUndefined();
+  });
+});
+
+// ── PostToolUseFailure language detection ────────────────────────────────────
+
+describe("PostToolUseFailure language detection", () => {
+  test("Captures lang from file_path in PostToolUseFailure", () => {
+    runTracker({
+      hook_event_name: "PostToolUseFailure",
+      session_id: "sess-fail-ts",
+      tool_name: "Edit",
+      error: "Could not read file",
+      tool_input: { file_path: "/src/index.ts" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].lang).toBe("typescript");
+  });
+
+  test("Captures lang from .py file in PostToolUseFailure", () => {
+    runTracker({
+      hook_event_name: "PostToolUseFailure",
+      session_id: "sess-fail-py",
+      tool_name: "Read",
+      error: "Permission denied",
+      tool_input: { file_path: "/main.py" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].lang).toBe("python");
+  });
+
+  test("Returns null lang when file_path missing in PostToolUseFailure", () => {
+    runTracker({
+      hook_event_name: "PostToolUseFailure",
+      session_id: "sess-fail-no-path",
+      tool_name: "Bash",
+      error: "Command failed",
+      tool_input: { command: "ls" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].lang).toBeNull();
+  });
+});
+
+// ── PostToolUse file_path fallback to tool_input.path ──────────────────────
+
+describe("PostToolUse file_path fallback", () => {
+  test("Extracts file_path from tool_input.path when file_path missing", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-path-fallback",
+      tool_name: "Read",
+      tool_input: { path: "/src/main.js" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].file_path).toBe("/src/main.js");
+  });
+
+  test("Prefers file_path over path when both present", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-prefer-filepath",
+      tool_name: "Read",
+      tool_input: { file_path: "/preferred.ts", path: "/fallback.py" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].file_path).toBe("/preferred.ts");
+    expect(events[0].lang).toBe("typescript");
+  });
+
+  test("Detects lang from path fallback", () => {
+    runTracker({
+      hook_event_name: "PostToolUse",
+      session_id: "sess-lang-from-path",
+      tool_name: "Read",
+      tool_input: { path: "/script.py" },
+    });
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].lang).toBe("python");
+  });
+});

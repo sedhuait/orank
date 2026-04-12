@@ -13,7 +13,7 @@
       "name": "orank",
       "source": "./",
       "description": "Track Claude Code usage, earn badges, climb the leaderboard.",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "author": {
         "name": "Sedhu",
         "email": "sedhuait@gmail.com"

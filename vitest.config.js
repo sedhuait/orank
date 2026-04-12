@@ -10,12 +10,12 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["scripts/**/*.js"],
-      exclude: ["scripts/cli.js", "scripts/tracker.js"],
+      exclude: ["scripts/cli.js"],
       thresholds: {
-        statements: 95,
-        branches: 85,
-        functions: 95,
-        lines: 95,
+        statements: 100,
+        branches: 100,
+        functions: 100,
+        lines: 100,
       },
       reporter: ["text", "text-summary"],
     },
