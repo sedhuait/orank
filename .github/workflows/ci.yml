@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate JSON manifests
+        run: |
+          for f in .claude-plugin/plugin.json hooks/hooks.json package.json; do
+            echo "Checking $f"
+            node -e "JSON.parse(require('node:fs').readFileSync('$f','utf8'))"
+          done
+
+      - name: Check plugin.json required fields
+        run: |
+          node -e '
+            const p = JSON.parse(require("node:fs").readFileSync(".claude-plugin/plugin.json", "utf8"));
+            const required = ["name", "version", "description", "author"];
+            const missing = required.filter(k => !p[k]);
+            if (missing.length) { console.error("Missing fields in plugin.json:", missing); process.exit(1); }
+            console.log("plugin.json OK");
+          '
+
+      - name: Verify plugin.json and package.json versions match
+        run: |
+          node -e '
+            const plugin = JSON.parse(require("node:fs").readFileSync(".claude-plugin/plugin.json", "utf8"));
+            const pkg = JSON.parse(require("node:fs").readFileSync("package.json", "utf8"));
+            if (plugin.version !== pkg.version) {
+              console.error(`Version mismatch: plugin.json=${plugin.version}, package.json=${pkg.version}`);
+              process.exit(1);
+            }
+            console.log(`Versions match: ${plugin.version}`);
+          '
+
+  lint:
+    name: Lint (biome)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+
+  syntax:
+    name: Syntax check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: node --check on all scripts
+        run: |
+          find scripts -name '*.js' -print0 | xargs -0 -n1 node --check
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  smoke:
+    name: CLI smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: stats on empty data dir
+        run: |
+          mkdir -p /tmp/orank-smoke
+          CLAUDE_PLUGIN_DATA=/tmp/orank-smoke node scripts/cli.js stats
+      - name: privacy runs
+        run: |
+          CLAUDE_PLUGIN_DATA=/tmp/orank-smoke node scripts/cli.js privacy
