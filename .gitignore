@@ -26,3 +26,6 @@ sync-cursor.json
 *~
 docs/superpowers/
 .gstack/
+
+# Claude Code local session state (lock files, user-local settings)
+.claude/
