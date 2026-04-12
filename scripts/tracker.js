@@ -9,50 +9,79 @@
 
 import { execSync } from "node:child_process";
 import fs from "node:fs";
-import path from "node:path";
 import os from "node:os";
+import path from "node:path";
 import { Storage } from "./storage.js";
 
 // ── Language Detection ──────────────────────────────────────────────────────
 
 const EXT_TO_LANG = {
-  ".js": "javascript", ".mjs": "javascript", ".cjs": "javascript",
-  ".ts": "typescript", ".mts": "typescript", ".cts": "typescript",
-  ".tsx": "typescript", ".jsx": "javascript",
-  ".py": "python", ".pyw": "python", ".pyi": "python",
+  ".js": "javascript",
+  ".mjs": "javascript",
+  ".cjs": "javascript",
+  ".ts": "typescript",
+  ".mts": "typescript",
+  ".cts": "typescript",
+  ".tsx": "typescript",
+  ".jsx": "javascript",
+  ".py": "python",
+  ".pyw": "python",
+  ".pyi": "python",
   ".rs": "rust",
   ".go": "go",
-  ".java": "java", ".kt": "kotlin", ".kts": "kotlin",
-  ".rb": "ruby", ".erb": "ruby",
+  ".java": "java",
+  ".kt": "kotlin",
+  ".kts": "kotlin",
+  ".rb": "ruby",
+  ".erb": "ruby",
   ".php": "php",
-  ".c": "c", ".h": "c",
-  ".cpp": "cpp", ".cc": "cpp", ".cxx": "cpp", ".hpp": "cpp",
+  ".c": "c",
+  ".h": "c",
+  ".cpp": "cpp",
+  ".cc": "cpp",
+  ".cxx": "cpp",
+  ".hpp": "cpp",
   ".cs": "csharp",
   ".swift": "swift",
   ".scala": "scala",
-  ".r": "r", ".R": "r",
+  ".r": "r",
+  ".R": "r",
   ".lua": "lua",
   ".zig": "zig",
-  ".ex": "elixir", ".exs": "elixir",
+  ".ex": "elixir",
+  ".exs": "elixir",
   ".erl": "erlang",
   ".hs": "haskell",
-  ".ml": "ocaml", ".mli": "ocaml",
-  ".clj": "clojure", ".cljs": "clojure",
+  ".ml": "ocaml",
+  ".mli": "ocaml",
+  ".clj": "clojure",
+  ".cljs": "clojure",
   ".dart": "dart",
   ".vue": "vue",
   ".svelte": "svelte",
   ".sql": "sql",
-  ".sh": "shell", ".bash": "shell", ".zsh": "shell", ".fish": "shell",
-  ".html": "html", ".htm": "html",
-  ".css": "css", ".scss": "scss", ".less": "less",
-  ".json": "json", ".jsonc": "json",
-  ".yaml": "yaml", ".yml": "yaml",
+  ".sh": "shell",
+  ".bash": "shell",
+  ".zsh": "shell",
+  ".fish": "shell",
+  ".html": "html",
+  ".htm": "html",
+  ".css": "css",
+  ".scss": "scss",
+  ".less": "less",
+  ".json": "json",
+  ".jsonc": "json",
+  ".yaml": "yaml",
+  ".yml": "yaml",
   ".toml": "toml",
   ".xml": "xml",
-  ".md": "markdown", ".mdx": "markdown",
+  ".md": "markdown",
+  ".mdx": "markdown",
   ".proto": "protobuf",
-  ".graphql": "graphql", ".gql": "graphql",
-  ".tf": "terraform", ".hcl": "terraform",
+  ".graphql": "graphql",
+  ".gql": "graphql",
+  ".tf": "terraform",
+  ".hcl": "terraform",
   ".sol": "solidity",
   ".move": "move",
   ".cairo": "cairo",
@@ -63,7 +92,7 @@ const EXT_TO_LANG = {
 // Framework/library hints from file paths
 const PATH_FRAMEWORK_PATTERNS = [
   { pattern: /\/components\/|\.tsx$|\.jsx$/, framework: "react" },
-  { pattern: /\/pages\/|\/app\/.*\/(page|layout|loading)\.(ts|js|tsx|jsx)$/, framework: "nextjs" },
+  { pattern: /\/pages\/|\/app\/(.*\/)?(page|layout|loading)\.(ts|js|tsx|jsx)$/, framework: "nextjs" },
   { pattern: /\.vue$/, framework: "vue" },
   { pattern: /\.svelte$/, framework: "svelte" },
   { pattern: /\/routes\/.*\+.*\.svelte$/, framework: "sveltekit" },
@@ -71,10 +100,13 @@ const PATH_FRAMEWORK_PATTERNS = [
   { pattern: /\/templates\/.*\.html$|\/views\.py$/, framework: "django" },
   { pattern: /\/routers?\/.*\.py$|\/app\/.*\.py$/, framework: "fastapi" },
   { pattern: /\/controllers?\/|\/models?\/|\/views?\//, framework: "mvc" },
-  { pattern: /\.test\.(ts|js|tsx|jsx)$|\.spec\.(ts|js|tsx|jsx)$|_test\.go$|_test\.py$/, framework: "testing" },
+  {
+    pattern: /\.test\.(ts|js|tsx|jsx)$|\.spec\.(ts|js|tsx|jsx)$|_test\.go$|(^|\/)test_[^/]+\.py$|_test\.py$/,
+    framework: "testing",
+  },
   { pattern: /Dockerfile|docker-compose/, framework: "docker" },
   { pattern: /\.tf$|\.hcl$/, framework: "terraform" },
-  { pattern: /\.k8s\.|kubernetes|\/manifests\//, framework: "kubernetes" },
+  { pattern: /(^|[/.])k8s[./]|kubernetes|\/manifests\//, framework: "kubernetes" },
   { pattern: /\/prisma\//, framework: "prisma" },
   { pattern: /\/graphql\/|\.graphql$/, framework: "graphql" },
 ];
@@ -172,9 +204,7 @@ function detectProjectStack(cwd) {
   const stacks = [];
   for (const marker of PROJECT_MARKERS) {
     try {
-      const markerPath = marker.file.includes("/")
-        ? path.join(cwd, marker.file)
-        : path.join(cwd, marker.file);
+      const markerPath = marker.file.includes("/") ? path.join(cwd, marker.file) : path.join(cwd, marker.file);
       if (fs.existsSync(markerPath)) {
         stacks.push(marker.stack);
       }
@@ -289,7 +319,7 @@ function main() {
       const filePath = toolInput.file_path || toolInput.path || null;
       const lang = extractLangFromPath(filePath);
       const frameworks = extractFrameworksFromPath(filePath);
-      const editSize = (toolName === "Edit" || toolName === "Write") ? estimateEditSize(toolInput) : null;
+      const editSize = toolName === "Edit" || toolName === "Write" ? estimateEditSize(toolInput) : null;
 
       // For Bash tool, classify the command
       let bashInfo = null;
@@ -415,10 +445,8 @@ function main() {
 }
 
 // Run main() only when executed directly (not imported for testing)
-const isDirectRun = process.argv[1] && (
-  process.argv[1].endsWith("/tracker.js") ||
-  process.argv[1].endsWith("\\tracker.js")
-);
+const isDirectRun =
+  process.argv[1] && (process.argv[1].endsWith("/tracker.js") || process.argv[1].endsWith("\\tracker.js"));
 if (isDirectRun) {
   main();
 }
