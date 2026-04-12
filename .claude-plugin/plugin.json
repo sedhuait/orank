@@ -11,6 +11,7 @@
   "repository": "https://github.com/Sedhuait/orank",
   "license": "MIT",
   "keywords": ["ranking", "gamification", "badges", "stats", "tracking"],
+  "skills": "./skills/",
   "userConfig": {
     "display_name": {
       "title": "Display Name",
