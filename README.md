@@ -10,7 +10,7 @@ Inside Claude Code, run these two slash commands:
 
 ```
 /plugin marketplace add sedhuait/orank
-/plugin install orank@sedhuait-orank
+/plugin install orank@orank
 ```
 
 Or open the plugin manager with `/plugin`, go to **Discover**, find **orank**, and click Install.
