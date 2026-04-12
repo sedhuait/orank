@@ -92,8 +92,9 @@ orank/
 
 ## Coming Soon
 
+- 🤖 Support for more AI coding tools — Codex, Gemini CLI, Cursor, Aider, Windsurf, Copilot CLI
 - 🌐 orank.me web dashboard with shareable profiles
-- 🏆 Global leaderboard
+- 🏆 Global leaderboard (cross-tool — one score across every AI you use)
 - 🔗 Embeddable SVG badges for GitHub READMEs
 - 📊 Token usage tracking (via Anthropic API)
 - 👥 Team dashboards
