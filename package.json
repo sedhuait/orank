@@ -2,7 +2,7 @@
   "name": "orank",
   "version": "0.1.0",
   "type": "module",
-  "description": "orank — your open AI score. Gamification, badges, and ranking for Claude Code users.",
+  "description": "orank — your AI score. Gamification, badges, and ranking for Claude Code users.",
   "main": "scripts/cli.js",
   "scripts": {
     "stats": "node scripts/cli.js stats",

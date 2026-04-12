@@ -1,4 +1,4 @@
-# ⚡ orank — your open AI score
+# ⚡ orank — your AI score
 
 **Gamification, badges, and ranking for Claude Code users.**
 
@@ -24,7 +24,9 @@ That's it. orank starts tracking automatically via Claude Code hooks.
 
 ## What Gets Tracked
 
-orank captures data automatically — zero configuration:
+orank captures data automatically — zero configuration.
+
+**Core events (from Claude Code hooks):**
 
 | Data Point | How | Privacy |
 | --- | --- | --- |
@@ -34,7 +36,21 @@ orank captures data automatically — zero configuration:
 | Conversation turns | Stop hook | Local only |
 | Historical sessions | \~/.claude/history.jsonl | Read-only |
 
-All data is stored locally in JSONL. Nothing leaves your machine unless you enable sync.
+**Rich context (inferred from tool inputs — what you built, not just how much):**
+
+| Data Point | Source | Example |
+| --- | --- | --- |
+| Languages edited | File extensions on Edit/Write/Read | `typescript: 423`, `python: 89` |
+| Frameworks detected | Path patterns (e.g. `/components/`, `/app/`) | `react`, `nextjs`, `django`, `sveltekit` |
+| Project stack | Marker files at session start | `package.json → javascript`, `Cargo.toml → rust` |
+| Bash categories | Command prefix (`npm`, `cargo`, `docker`, …) | `node`, `rust`, `docker`, `git`, `testing` |
+| Edit size | `chars_added` / `chars_removed` per edit | Lines-of-code impact per session |
+| Repo attribution | `git remote get-url origin` at session start | `sedhuait/orank: 5 sessions, 200 tools` |
+| Model used | Model ID per session | `opus-4`, `sonnet-4` |
+| Platform | `os.platform()` | `darwin`, `linux` |
+| Daily language mix | Per-day language breakdown | `2026-04-12: { typescript: 10, python: 3 }` |
+
+All of this is computed locally on your machine from data Claude Code already sends to hooks. Nothing leaves your machine unless you explicitly enable sync. File *contents* are never stored — only file extensions, path patterns, and character counts.
 
 ## Gamification
 
@@ -84,4 +100,4 @@ orank/
 
 ## License
 
-MIT — Built by [Sedhu](https://orank.me)
+MIT — Built by [Sedhu](https://Sedhu.me)

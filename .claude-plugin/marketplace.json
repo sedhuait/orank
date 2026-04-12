@@ -5,7 +5,7 @@
     "email": "sedhuait@gmail.com"
   },
   "metadata": {
-    "description": "Your open AI coding score. Gamification, badges, and ranking for Claude Code users.",
+    "description": "Your AI coding score. Gamification, badges, and ranking for Claude Code users.",
     "version": "0.1.0"
   },
   "plugins": [

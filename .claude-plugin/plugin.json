@@ -1,7 +1,7 @@
 {
   "name": "orank",
   "version": "0.2.0",
-  "description": "Your open AI coding score. Track Claude Code usage, earn badges, climb the leaderboard.",
+  "description": "Your AI coding score. Track Claude Code usage, earn badges, climb the leaderboard.",
   "author": {
     "name": "Sedhu",
     "email": "sedhuait@gmail.com",
