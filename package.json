@@ -1,6 +1,6 @@
 {
   "name": "orank",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "orank — your AI score. Gamification, badges, and ranking for Claude Code users.",
   "main": "scripts/cli.js",
@@ -11,12 +11,14 @@
     "export": "node scripts/cli.js export",
     "privacy": "node scripts/cli.js privacy",
     "integrity": "node scripts/cli.js integrity",
-    "test": "vitest run",
+    "test": "vitest run --no-coverage",
+    "test:coverage": "vitest run",
     "lint": "biome check scripts/ tests/",
     "format": "biome format --write scripts/ tests/",
     "check": "biome check --write scripts/ tests/"
   },
   "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
     "vitest": "^3.2.4"
   },
   "dependencies": {},

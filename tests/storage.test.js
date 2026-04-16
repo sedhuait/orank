@@ -143,6 +143,53 @@ describe("Pause/Resume", () => {
   });
 });
 
+// ── Install marker ────────────────────────────────────────────────────────────
+
+describe("Install marker", () => {
+  let storage;
+  let tmpDir;
+  let cleanup;
+
+  beforeEach(() => {
+    ({ storage, tmpDir, cleanup } = createTestStorage());
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  test("getInstalledAt returns null when never marked", () => {
+    expect(storage.getInstalledAt()).toBeNull();
+  });
+
+  test("markInstalled writes ISO timestamp to .installed_at", () => {
+    storage.markInstalled();
+    const file = path.join(tmpDir, ".installed_at");
+    expect(fs.existsSync(file)).toBe(true);
+    const stamp = storage.getInstalledAt();
+    expect(stamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+  });
+
+  test("markInstalled is idempotent — does not overwrite existing timestamp", () => {
+    storage.markInstalled();
+    const first = storage.getInstalledAt();
+    // Wait at least 5ms so a new ISO timestamp would differ
+    const start = Date.now();
+    while (Date.now() - start < 10) {
+      // busy wait
+    }
+    storage.markInstalled();
+    expect(storage.getInstalledAt()).toBe(first);
+  });
+
+  test("purge removes .installed_at file", () => {
+    storage.markInstalled();
+    expect(storage.getInstalledAt()).not.toBeNull();
+    storage.purge();
+    expect(storage.getInstalledAt()).toBeNull();
+  });
+});
+
 // ── _emptyCache ───────────────────────────────────────────────────────────────
 
 describe("_emptyCache", () => {
@@ -1207,7 +1254,9 @@ describe("Rich data: session_start processing", () => {
   });
 
   test("session_start with project_stacks aggregates into cache", () => {
-    const events = [sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1", project_stacks: ["typescript", "nextjs"] })];
+    const events = [
+      sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1", project_stacks: ["typescript", "nextjs"] }),
+    ];
     writeEvents(tmpDir, events);
     storage.rebuildCache();
     const cache = storage.ensureFreshCache();
@@ -1402,9 +1451,21 @@ describe("Rich data: tool_use processing", () => {
   test("tool_use with file_path extracts extension into file_types_edited", () => {
     const events = [
       sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
-      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:01:00Z", file_path: "/src/app.tsx", edit_size: { type: "edit", chars_added: 100, chars_removed: 0 } }),
-      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:02:00Z", file_path: "/src/main.py", edit_size: { type: "edit", chars_added: 50, chars_removed: 0 } }),
-      toolUseEvent("s1", "Edit", { ts: "2026-03-15T10:03:00Z", file_path: "/src/app.tsx", edit_size: { type: "edit", chars_added: 75, chars_removed: 0 } }),
+      toolUseEvent("s1", "Edit", {
+        ts: "2026-03-15T10:01:00Z",
+        file_path: "/src/app.tsx",
+        edit_size: { type: "edit", chars_added: 100, chars_removed: 0 },
+      }),
+      toolUseEvent("s1", "Edit", {
+        ts: "2026-03-15T10:02:00Z",
+        file_path: "/src/main.py",
+        edit_size: { type: "edit", chars_added: 50, chars_removed: 0 },
+      }),
+      toolUseEvent("s1", "Edit", {
+        ts: "2026-03-15T10:03:00Z",
+        file_path: "/src/app.tsx",
+        edit_size: { type: "edit", chars_added: 75, chars_removed: 0 },
+      }),
     ];
     writeEvents(tmpDir, events);
     storage.rebuildCache();
@@ -1713,7 +1774,11 @@ describe("Rich data: public getters", () => {
   test("getEditStats returns aggregated edit data", () => {
     const events = [
       sessionStartEvent({ ts: "2026-03-15T10:00:00Z", sid: "s1" }),
-      toolUseEvent("s1", "Write", { ts: "2026-03-15T10:01:00Z", file_path: "/src/app.tsx", edit_size: { type: "write", chars: 1000 } }),
+      toolUseEvent("s1", "Write", {
+        ts: "2026-03-15T10:01:00Z",
+        file_path: "/src/app.tsx",
+        edit_size: { type: "write", chars: 1000 },
+      }),
       toolUseEvent("s1", "Edit", {
         ts: "2026-03-15T10:02:00Z",
         file_path: "/src/main.py",

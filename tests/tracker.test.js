@@ -14,6 +14,7 @@ function runTracker(hookInput, extraEnv = {}) {
   const input = JSON.stringify(hookInput);
   try {
     execSync(`echo '${input.replace(/'/g, "'\\''")}' | node "${TRACKER_PATH}"`, {
+      cwd: tmpDir,
       env: {
         ...process.env,
         CLAUDE_PLUGIN_DATA: tmpDir,
@@ -588,7 +589,7 @@ describe("SessionStart rich data capture", () => {
   });
 
   test("Detects typescript stack from tsconfig.json", () => {
-    fs.writeFileSync(path.join(tmpDir, "tsconfig.json"), '{}');
+    fs.writeFileSync(path.join(tmpDir, "tsconfig.json"), "{}");
     runTracker({
       hook_event_name: "SessionStart",
       session_id: "sess-ts-stack",
@@ -602,7 +603,7 @@ describe("SessionStart rich data capture", () => {
 
   test("Detects multiple stacks (javascript + typescript)", () => {
     fs.writeFileSync(path.join(tmpDir, "package.json"), '{"name":"test"}');
-    fs.writeFileSync(path.join(tmpDir, "tsconfig.json"), '{}');
+    fs.writeFileSync(path.join(tmpDir, "tsconfig.json"), "{}");
     runTracker({
       hook_event_name: "SessionStart",
       session_id: "sess-multi-stack",
@@ -1009,7 +1010,7 @@ describe("PostToolUse bash command classification", () => {
   });
 
   test("Truncates long command preview to 120 chars", () => {
-    const longCmd = "npm install " + "package ".repeat(20);
+    const longCmd = `npm install ${"package ".repeat(20)}`;
     runTracker({
       hook_event_name: "PostToolUse",
       session_id: "sess-long-cmd",
