@@ -46,6 +46,34 @@ function bar(pct, width = 20) {
   return `${"█".repeat(filled)}${"░".repeat(width - filled)} ${Math.round(pct)}%`;
 }
 
+// Detect plugin states where the dashboard would mislead the user:
+// - never imported, never tracked
+// - imported but no live hook event (Claude Code wasn't restarted, so hooks never loaded)
+// Returns null when everything looks healthy.
+function hookHealthBanner(storage, stats) {
+  const lines = [];
+  if (stats.total_sessions === 0 && stats.total_tool_uses === 0) {
+    lines.push("  \u26A0  No data yet.");
+    lines.push("     Run /orank import to backfill history,");
+    lines.push("     then restart Claude Code so live hooks load.");
+    return lines;
+  }
+  if (stats.total_sessions > 0 && stats.total_tool_uses === 0) {
+    lines.push("  \u26A0  Live hook tracking is not active.");
+    lines.push("     Tools, turns, and time will stay at 0 until you restart");
+    lines.push("     Claude Code — hooks only load on a fresh session.");
+    const installedAt = storage.getInstalledAt();
+    if (installedAt) {
+      const days = Math.floor((Date.now() - new Date(installedAt).getTime()) / 86_400_000);
+      if (days >= 1) {
+        lines.push(`     (orank installed ${days}d ago, no hook events recorded)`);
+      }
+    }
+    return lines;
+  }
+  return null;
+}
+
 // ── Commands ────────���───────────────────────────────��───────────────────────
 
 function getCurrentMetrics(storage) {
@@ -126,6 +154,12 @@ function cmdStats(storage) {
     "  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
   );
   lines.push("");
+
+  const banner = hookHealthBanner(storage, stats);
+  if (banner) {
+    for (const line of banner) lines.push(line);
+    lines.push("");
+  }
 
   lines.push(
     `  ${tier.icon}  ${tier.name}    ${fmt(stats.total_xp)} XP    Today: +${fmt(todayXP)} XP    Efficiency: ${metrics.grade} (${metrics.composite}) ${trends.composite.arrow}`,

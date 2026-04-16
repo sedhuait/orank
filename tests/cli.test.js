@@ -110,6 +110,45 @@ describe("stats command", () => {
   });
 });
 
+// ── hook health banner ────────────────────────────────────────────────────────
+
+describe("stats hook health banner", () => {
+  test("shows 'No data yet' when empty", () => {
+    const out = runCli("stats");
+    expect(out).toMatch(/No data yet/);
+    expect(out).toMatch(/orank import/);
+  });
+
+  test("shows 'Live hook tracking is not active' when sessions but no tool_use", () => {
+    writeEventsFile([
+      { type: "session_start", ts: "2026-04-14T10:00:00Z", sid: "s1", cwd: "/x" },
+      { type: "session_end", ts: "2026-04-14T11:00:00Z", sid: "s1" },
+      { type: "history_import", ts: "2026-04-14T10:00:00Z", sid: "s1" },
+    ]);
+    const out = runCli("stats");
+    expect(out).toMatch(/Live hook tracking is not active/);
+    expect(out).toMatch(/restart[\s\S]*Claude Code/i);
+  });
+
+  test("includes install age when .installed_at present", () => {
+    writeEventsFile([
+      { type: "session_start", ts: "2026-04-14T10:00:00Z", sid: "s1", cwd: "/x" },
+      { type: "history_import", ts: "2026-04-14T10:00:00Z", sid: "s1" },
+    ]);
+    const threeDaysAgo = new Date(Date.now() - 3 * 86_400_000).toISOString();
+    fs.writeFileSync(path.join(tmpDir, ".installed_at"), threeDaysAgo);
+    const out = runCli("stats");
+    expect(out).toMatch(/installed 3d ago/);
+  });
+
+  test("does not show banner when tool_use events exist", () => {
+    seedData();
+    const out = runCli("stats");
+    expect(out).not.toMatch(/Live hook tracking is not active/);
+    expect(out).not.toMatch(/No data yet/);
+  });
+});
+
 // ── badges command ────────────────────────────────────────────────────────────
 
 describe("badges command", () => {
