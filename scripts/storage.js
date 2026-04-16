@@ -23,6 +23,7 @@ class Storage {
     this.cacheFile = path.join(this.dataDir, "cache.json");
     this.syncCursorFile = path.join(this.dataDir, "sync-cursor.json");
     this.pausedFile = path.join(this.dataDir, ".paused");
+    this.installedAtFile = path.join(this.dataDir, ".installed_at");
 
     if (!fs.existsSync(this.dataDir)) {
       fs.mkdirSync(this.dataDir, { recursive: true });
@@ -42,6 +43,17 @@ class Storage {
 
   isPaused() {
     return fs.existsSync(this.pausedFile);
+  }
+
+  markInstalled() {
+    if (!fs.existsSync(this.installedAtFile)) {
+      fs.writeFileSync(this.installedAtFile, new Date().toISOString(), "utf8");
+    }
+  }
+
+  getInstalledAt() {
+    if (!fs.existsSync(this.installedAtFile)) return null;
+    return fs.readFileSync(this.installedAtFile, "utf8").trim() || null;
   }
 
   pause() {
@@ -741,7 +753,7 @@ class Storage {
   }
 
   purge() {
-    const files = [this.eventsFile, this.cacheFile, this.syncCursorFile];
+    const files = [this.eventsFile, this.cacheFile, this.syncCursorFile, this.installedAtFile];
     for (const file of files) {
       if (fs.existsSync(file)) {
         fs.unlinkSync(file);

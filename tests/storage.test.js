@@ -143,6 +143,53 @@ describe("Pause/Resume", () => {
   });
 });
 
+// ── Install marker ────────────────────────────────────────────────────────────
+
+describe("Install marker", () => {
+  let storage;
+  let tmpDir;
+  let cleanup;
+
+  beforeEach(() => {
+    ({ storage, tmpDir, cleanup } = createTestStorage());
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  test("getInstalledAt returns null when never marked", () => {
+    expect(storage.getInstalledAt()).toBeNull();
+  });
+
+  test("markInstalled writes ISO timestamp to .installed_at", () => {
+    storage.markInstalled();
+    const file = path.join(tmpDir, ".installed_at");
+    expect(fs.existsSync(file)).toBe(true);
+    const stamp = storage.getInstalledAt();
+    expect(stamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+  });
+
+  test("markInstalled is idempotent — does not overwrite existing timestamp", () => {
+    storage.markInstalled();
+    const first = storage.getInstalledAt();
+    // Wait at least 5ms so a new ISO timestamp would differ
+    const start = Date.now();
+    while (Date.now() - start < 10) {
+      // busy wait
+    }
+    storage.markInstalled();
+    expect(storage.getInstalledAt()).toBe(first);
+  });
+
+  test("purge removes .installed_at file", () => {
+    storage.markInstalled();
+    expect(storage.getInstalledAt()).not.toBeNull();
+    storage.purge();
+    expect(storage.getInstalledAt()).toBeNull();
+  });
+});
+
 // ── _emptyCache ───────────────────────────────────────────────────────────────
 
 describe("_emptyCache", () => {

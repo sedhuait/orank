@@ -37,6 +37,12 @@ fi
 echo "  1. Creating data directory..."
 mkdir -p "$DATA_DIR"
 
+# Stamp the install time so /orank can detect "hooks have never fired since install"
+# (a sidecar file, not an event — keeps events.jsonl pure user activity)
+CLAUDE_PLUGIN_DATA="$DATA_DIR" node --input-type=module -e "
+  import('$SCRIPT_DIR/scripts/storage.js').then(({ Storage }) => new Storage().markInstalled());
+" 2>/dev/null || true
+
 # Add local marketplace and install plugin
 echo "  2. Adding orank marketplace..."
 claude plugin marketplace add "$SCRIPT_DIR" 2>/dev/null || true
